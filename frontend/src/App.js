@@ -102,16 +102,16 @@ const Sidebar = ({ collapsed, setCollapsed, viewMode, setViewMode }) => {
       <div className="p-2 border-t border-[#27272a] space-y-2">
         {!collapsed && (
           <button
-            onClick={() => setViewMode(viewMode === 'modern' ? 'bloomberg' : 'modern')}
+            onClick={() => setViewMode(viewMode === 'modern' ? 'wellington' : 'modern')}
             className="nav-item w-full justify-between text-xs"
             data-testid="view-mode-toggle"
           >
             <span className="flex items-center gap-2">
               <Eye size={14} />
-              {viewMode === 'modern' ? 'Modern' : 'Bloomberg'}
+              {viewMode === 'modern' ? 'Modern' : 'Wellington'}
             </span>
             <span className="text-[10px] px-1.5 py-0.5 bg-[#3b82f6]/20 text-[#3b82f6] rounded">
-              {viewMode === 'modern' ? 'BBG' : 'MOD'}
+              {viewMode === 'modern' ? 'WEL' : 'MOD'}
             </span>
           </button>
         )}
@@ -483,7 +483,7 @@ const SECFilingsPage = ({ viewMode }) => {
 
   if (loading) return <LoadingState />;
 
-  const isBloomberg = viewMode === 'bloomberg';
+  const isBloomberg = viewMode === 'wellington';
 
   return (
     <div data-testid="sec-filings-page" className={isBloomberg ? 'font-mono' : ''}>
@@ -677,7 +677,7 @@ const GlobalHeatmapPage = ({ viewMode }) => {
 
   if (loading) return <LoadingState />;
 
-  const isBloomberg = viewMode === 'bloomberg';
+  const isBloomberg = viewMode === 'wellington';
   const regions = {
     'US': indices.filter(i => i.region === 'US'),
     'Europe': indices.filter(i => ['UK', 'Germany', 'France'].includes(i.region)),
@@ -865,7 +865,7 @@ const AutomationHubPage = ({ viewMode }) => {
 
   if (loading) return <LoadingState />;
 
-  const isBloomberg = viewMode === 'bloomberg';
+  const isBloomberg = viewMode === 'wellington';
 
   return (
     <div data-testid="automation-hub-page" className={isBloomberg ? 'font-mono' : ''}>
@@ -2265,10 +2265,10 @@ const StatRow = ({ label, value }) => (
 // ============== MAIN APP ==============
 function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [viewMode, setViewMode] = useState('modern'); // 'modern' or 'bloomberg'
+  const [viewMode, setViewMode] = useState('modern'); // 'modern' or 'wellington'
 
   return (
-    <div className={`app-container ${viewMode === 'bloomberg' ? 'bloomberg-mode' : ''}`}>
+    <div className={`app-container ${viewMode === 'wellington' ? 'wellington-mode' : ''}`}>
       <BrowserRouter>
         <Sidebar 
           collapsed={sidebarCollapsed} 
