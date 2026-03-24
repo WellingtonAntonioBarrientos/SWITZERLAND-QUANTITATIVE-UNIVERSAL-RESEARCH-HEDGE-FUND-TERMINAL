@@ -1,4 +1,5 @@
-from fastapi import FastAPI, APIRouter, HTTPException
+from fastapi import FastAPI, APIRouter, HTTPException, Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -8,9 +9,11 @@ from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional, Dict, Any
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import random
 from emergentintegrations.llm.chat import LlmChat, UserMessage
+import hashlib
+import jwt
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -20,11 +23,91 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
+# Auth Configuration
+SECRET_KEY = os.environ.get('JWT_SECRET', 'quantflow-private-dashboard-secret-key-2026')
+OWNER_EMAIL = "barrientoswellingtonantonio@gmail.com"
+# Default password is "quantflow2026" - user should change this
+OWNER_PASSWORD_HASH = os.environ.get('OWNER_PASSWORD_HASH', hashlib.sha256("quantflow2026".encode()).hexdigest())
+
+security = HTTPBearer(auto_error=False)
+
 # Create the main app
 app = FastAPI(title="QuantFlow Terminal API")
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
+
+# ============== AUTH MODELS & FUNCTIONS ==============
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+class LoginResponse(BaseModel):
+    token: str
+    email: str
+    message: str
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+def verify_password(password: str) -> bool:
+    return hashlib.sha256(password.encode()).hexdigest() == OWNER_PASSWORD_HASH
+
+def create_token(email: str) -> str:
+    payload = {
+        "email": email,
+        "exp": datetime.now(timezone.utc) + timedelta(days=7),
+        "iat": datetime.now(timezone.utc)
+    }
+    return jwt.encode(payload, SECRET_KEY, algorithm="HS256")
+
+def verify_token(token: str) -> Optional[str]:
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        return payload.get("email")
+    except jwt.ExpiredSignatureError:
+        return None
+    except jwt.InvalidTokenError:
+        return None
+
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
+    if not credentials:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    email = verify_token(credentials.credentials)
+    if not email or email != OWNER_EMAIL:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    
+    return email
+
+# ============== AUTH ENDPOINTS ==============
+
+@api_router.post("/auth/login", response_model=LoginResponse)
+async def login(request: LoginRequest):
+    if request.email.lower() != OWNER_EMAIL.lower():
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    
+    if not verify_password(request.password):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    
+    token = create_token(request.email)
+    return LoginResponse(token=token, email=request.email, message="Login successful")
+
+@api_router.get("/auth/verify")
+async def verify_auth(current_user: str = Depends(get_current_user)):
+    return {"authenticated": True, "email": current_user}
+
+@api_router.post("/auth/change-password")
+async def change_password(request: ChangePasswordRequest, current_user: str = Depends(get_current_user)):
+    global OWNER_PASSWORD_HASH
+    
+    if not verify_password(request.current_password):
+        raise HTTPException(status_code=401, detail="Current password is incorrect")
+    
+    OWNER_PASSWORD_HASH = hashlib.sha256(request.new_password.encode()).hexdigest()
+    return {"message": "Password changed successfully"}
 
 # ============== MODELS ==============
 

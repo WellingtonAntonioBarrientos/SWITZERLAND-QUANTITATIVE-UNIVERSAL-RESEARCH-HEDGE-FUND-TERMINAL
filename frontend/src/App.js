@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import "@/App.css";
-import { BrowserRouter, Routes, Route, NavLink, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, NavLink, useLocation, Navigate } from "react-router-dom";
 import axios from "axios";
 import { 
   LayoutDashboard, Globe, Terminal as TerminalIcon, FileSearch, 
@@ -11,7 +11,7 @@ import {
   Briefcase, Target, Shield, Brain, Coins, Scale, Cpu, 
   FileBarChart, TrendingDown, Building2, ChevronDown, ChevronUp,
   FileText, Map, Bot, Database, Users, Lock, Workflow,
-  BarChart3, PieChart, Eye, Layers
+  BarChart3, PieChart, Eye, Layers, LogOut, Key
 } from "lucide-react";
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar, 
@@ -21,8 +21,168 @@ import {
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
+// ============== AUTH CONTEXT ==============
+const useAuth = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [userEmail, setUserEmail] = useState(null);
+
+  useEffect(() => {
+    const token = localStorage.getItem('quantflow_token');
+    if (token) {
+      verifyToken(token);
+    } else {
+      setLoading(false);
+    }
+  }, []);
+
+  const verifyToken = async (token) => {
+    try {
+      const res = await axios.get(`${API}/auth/verify`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setIsAuthenticated(true);
+      setUserEmail(res.data.email);
+    } catch (e) {
+      localStorage.removeItem('quantflow_token');
+      setIsAuthenticated(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const login = async (email, password) => {
+    const res = await axios.post(`${API}/auth/login`, { email, password });
+    localStorage.setItem('quantflow_token', res.data.token);
+    setIsAuthenticated(true);
+    setUserEmail(res.data.email);
+    return res.data;
+  };
+
+  const logout = () => {
+    localStorage.removeItem('quantflow_token');
+    setIsAuthenticated(false);
+    setUserEmail(null);
+  };
+
+  return { isAuthenticated, loading, userEmail, login, logout };
+};
+
+// Add auth header to all requests
+axios.interceptors.request.use((config) => {
+  const token = localStorage.getItem('quantflow_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// ============== LOGIN PAGE ==============
+const LoginPage = ({ onLogin }) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    
+    try {
+      await onLogin(email, password);
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Invalid credentials');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#050505] flex items-center justify-center p-4" data-testid="login-page">
+      <div className="w-full max-w-md">
+        {/* Logo & Title */}
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-gradient-to-br from-[#3b82f6] to-[#00e676] rounded-sm mx-auto flex items-center justify-center mb-4">
+            <span className="text-2xl font-bold text-white font-['Space_Grotesk']">QF</span>
+          </div>
+          <h1 className="text-2xl font-semibold text-[#ededed] font-['Space_Grotesk'] tracking-tight">
+            PRIVATE DASHBOARD
+          </h1>
+          <p className="text-sm text-[#71717a] mt-2">
+            QuantFlow Terminal • Authorized Access Only
+          </p>
+        </div>
+
+        {/* Login Card */}
+        <div className="quant-card">
+          <div className="quant-card-header flex items-center gap-2">
+            <Lock size={14} />
+            <span>AUTHENTICATION REQUIRED</span>
+          </div>
+          <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            {error && (
+              <div className="bg-[#ef4444]/10 border border-[#ef4444]/30 text-[#ef4444] px-4 py-3 rounded-sm text-sm flex items-center gap-2">
+                <AlertTriangle size={14} />
+                {error}
+              </div>
+            )}
+            
+            <div>
+              <label className="block text-xs uppercase text-[#71717a] mb-2">Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-4 py-3 bg-[#000] border border-[#27272a] rounded-sm text-[#ededed] font-mono text-sm focus:border-[#3b82f6] focus:outline-none"
+                placeholder="Enter your email"
+                required
+                data-testid="login-email"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-xs uppercase text-[#71717a] mb-2">Password</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-4 py-3 bg-[#000] border border-[#27272a] rounded-sm text-[#ededed] font-mono text-sm focus:border-[#3b82f6] focus:outline-none"
+                placeholder="Enter your password"
+                required
+                data-testid="login-password"
+              />
+            </div>
+            
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3 bg-[#3b82f6] text-white font-semibold rounded-sm uppercase text-sm tracking-wider hover:bg-[#2563eb] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              data-testid="login-submit"
+            >
+              {loading ? (
+                <RefreshCw size={16} className="animate-spin" />
+              ) : (
+                <>
+                  <Lock size={16} />
+                  Access Dashboard
+                </>
+              )}
+            </button>
+          </form>
+        </div>
+
+        {/* Footer */}
+        <p className="text-center text-[10px] text-[#71717a] mt-6">
+          Hedge Fund Quantitative Control Plane • Secure Access
+        </p>
+      </div>
+    </div>
+  );
+};
+
 // ============== SIDEBAR ==============
-const Sidebar = ({ collapsed, setCollapsed, viewMode, setViewMode }) => {
+const Sidebar = ({ collapsed, setCollapsed, viewMode, setViewMode, userEmail, onLogout }) => {
   const location = useLocation();
   
   const navItems = [
@@ -54,6 +214,14 @@ const Sidebar = ({ collapsed, setCollapsed, viewMode, setViewMode }) => {
         <div className="sidebar-logo">QF</div>
         {!collapsed && <span className="sidebar-title">QuantFlow</span>}
       </div>
+      
+      {/* User Info */}
+      {!collapsed && (
+        <div className="px-3 py-2 border-b border-[#27272a]">
+          <div className="text-[10px] uppercase text-[#71717a]">Logged in as</div>
+          <div className="text-xs text-[#ededed] truncate font-mono">{userEmail}</div>
+        </div>
+      )}
       
       <nav className="sidebar-nav">
         {navItems.map(item => (
@@ -101,19 +269,29 @@ const Sidebar = ({ collapsed, setCollapsed, viewMode, setViewMode }) => {
       
       <div className="p-2 border-t border-[#27272a] space-y-2">
         {!collapsed && (
-          <button
-            onClick={() => setViewMode(viewMode === 'modern' ? 'wellington' : 'modern')}
-            className="nav-item w-full justify-between text-xs"
-            data-testid="view-mode-toggle"
-          >
-            <span className="flex items-center gap-2">
-              <Eye size={14} />
-              {viewMode === 'modern' ? 'Modern' : 'Wellington'}
-            </span>
-            <span className="text-[10px] px-1.5 py-0.5 bg-[#3b82f6]/20 text-[#3b82f6] rounded">
-              {viewMode === 'modern' ? 'WEL' : 'MOD'}
-            </span>
-          </button>
+          <>
+            <button
+              onClick={() => setViewMode(viewMode === 'modern' ? 'wellington' : 'modern')}
+              className="nav-item w-full justify-between text-xs"
+              data-testid="view-mode-toggle"
+            >
+              <span className="flex items-center gap-2">
+                <Eye size={14} />
+                {viewMode === 'modern' ? 'Modern' : 'Wellington'}
+              </span>
+              <span className="text-[10px] px-1.5 py-0.5 bg-[#3b82f6]/20 text-[#3b82f6] rounded">
+                {viewMode === 'modern' ? 'WEL' : 'MOD'}
+              </span>
+            </button>
+            <button
+              onClick={onLogout}
+              className="nav-item w-full justify-start text-xs text-[#ef4444] hover:bg-[#ef4444]/10"
+              data-testid="logout-btn"
+            >
+              <LogOut size={14} />
+              <span>Logout</span>
+            </button>
+          </>
         )}
         <button
           onClick={() => setCollapsed(!collapsed)}
@@ -2264,8 +2442,21 @@ const StatRow = ({ label, value }) => (
 
 // ============== MAIN APP ==============
 function App() {
+  const { isAuthenticated, loading, userEmail, login, logout } = useAuth();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [viewMode, setViewMode] = useState('modern'); // 'modern' or 'wellington'
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#050505] flex items-center justify-center">
+        <RefreshCw className="animate-spin text-[#3b82f6]" size={32} />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <LoginPage onLogin={login} />;
+  }
 
   return (
     <div className={`app-container ${viewMode === 'wellington' ? 'wellington-mode' : ''}`}>
@@ -2275,6 +2466,8 @@ function App() {
           setCollapsed={setSidebarCollapsed} 
           viewMode={viewMode}
           setViewMode={setViewMode}
+          userEmail={userEmail}
+          onLogout={logout}
         />
         <main className={`main-content ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
           <Routes>

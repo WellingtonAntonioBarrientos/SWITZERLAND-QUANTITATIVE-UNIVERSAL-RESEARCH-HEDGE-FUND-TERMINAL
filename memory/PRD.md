@@ -1,10 +1,20 @@
 # QuantFlow Terminal - Product Requirements Document
 
 ## Project Overview
-A comprehensive hedge fund quantitative trading platform with 14+ modules for market analysis, strategy management, SEC filings analysis, and enterprise automation.
+A **private** hedge fund quantitative trading platform with 14+ modules for market analysis, strategy management, SEC filings analysis, and enterprise automation. Password-protected for single-user access.
+
+## Owner
+- **Email**: barrientoswellingtonantonio@gmail.com
+- **Default Password**: quantflow2026 (can be changed in app)
 
 ## Original Problem Statement
-Build a quant financial application with: quant dashboard, macro regime, world intel map, terminal, research queue, approvals, system health, hedge fund automation v1, hedge fund automation v2, and hedge fund hub. Plus 10 specific hedge fund strategies, 13F SEC filings with AI retrieval, global financial heatmap, and enhanced automation hub.
+Build a private quant financial application with authentication, quant dashboard, macro regime, world intel map, terminal, research queue, approvals, system health, hedge fund automation, 10 hedge fund strategies, 13F SEC filings with AI retrieval, and global financial heatmap.
+
+## Authentication
+- Simple password protection (single user)
+- JWT token-based sessions (7-day expiry)
+- Login page shows "Private Dashboard" message
+- Logout available in sidebar
 
 ## User Personas
 1. **Quantitative Traders** - Need real-time data, charts, and quick command access
