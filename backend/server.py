@@ -26,8 +26,7 @@ db = client[os.environ['DB_NAME']]
 # Auth Configuration
 SECRET_KEY = os.environ.get('JWT_SECRET', 'quantflow-private-dashboard-secret-key-2026')
 OWNER_EMAIL = "barrientoswellingtonantonio@gmail.com"
-# Default password is "quantflow2026" - user should change this
-OWNER_PASSWORD_HASH = os.environ.get('OWNER_PASSWORD_HASH', hashlib.sha256("quantflow2026".encode()).hexdigest())
+OWNER_PASSWORD_HASH = os.environ.get('OWNER_PASSWORD_HASH', '8c74b64989c9ddd14adbd0bcfb730c96892888944e704b5890dde0300a7fb5de')
 
 security = HTTPBearer(auto_error=False)
 
