@@ -359,7 +359,7 @@ async def root():
 async def get_market_data():
     return generate_mock_market_data()
 
-@api_router.get("/market/chart/{symbol}")
+@api_router.get("/market/chart/{symbol:path}")
 async def get_chart_data(symbol: str, period: str = "1D"):
     # Generate mock OHLCV data
     data_points = {"1D": 24, "1W": 168, "1M": 720, "3M": 2160}
