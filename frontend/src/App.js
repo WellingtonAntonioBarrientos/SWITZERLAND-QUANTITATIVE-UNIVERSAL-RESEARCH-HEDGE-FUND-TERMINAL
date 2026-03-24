@@ -9,7 +9,9 @@ import {
   ArrowUpRight, ArrowDownRight, Play, Pause, Trash2, Plus,
   AlertTriangle, CheckCircle, XCircle, Clock, Send,
   Briefcase, Target, Shield, Brain, Coins, Scale, Cpu, 
-  FileBarChart, TrendingDown, Building2, ChevronDown, ChevronUp
+  FileBarChart, TrendingDown, Building2, ChevronDown, ChevronUp,
+  FileText, Map, Bot, Database, Users, Lock, Workflow,
+  BarChart3, PieChart, Eye, Layers
 } from "lucide-react";
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar, 
@@ -20,12 +22,14 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 // ============== SIDEBAR ==============
-const Sidebar = ({ collapsed, setCollapsed }) => {
+const Sidebar = ({ collapsed, setCollapsed, viewMode, setViewMode }) => {
   const location = useLocation();
   
   const navItems = [
     { path: "/", icon: Home, label: "Hub" },
     { path: "/strategies", icon: Briefcase, label: "Strategies" },
+    { path: "/sec-filings", icon: FileText, label: "13F SEC Filings" },
+    { path: "/heatmap", icon: Map, label: "Global Heatmap" },
     { path: "/dashboard", icon: LayoutDashboard, label: "Quant Dashboard" },
     { path: "/macro", icon: TrendingUp, label: "Macro Regime" },
     { path: "/intel", icon: Globe, label: "World Intel" },
@@ -39,6 +43,7 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
   ];
   
   const automationItems = [
+    { path: "/automation-hub", icon: Bot, label: "Automation Hub" },
     { path: "/automation-v1", icon: Zap, label: "Automation V1" },
     { path: "/automation-v2", icon: Code2, label: "Automation V2" },
   ];
@@ -94,7 +99,22 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
         </div>
       </nav>
       
-      <div className="p-2 border-t border-[#27272a]">
+      <div className="p-2 border-t border-[#27272a] space-y-2">
+        {!collapsed && (
+          <button
+            onClick={() => setViewMode(viewMode === 'modern' ? 'bloomberg' : 'modern')}
+            className="nav-item w-full justify-between text-xs"
+            data-testid="view-mode-toggle"
+          >
+            <span className="flex items-center gap-2">
+              <Eye size={14} />
+              {viewMode === 'modern' ? 'Modern' : 'Bloomberg'}
+            </span>
+            <span className="text-[10px] px-1.5 py-0.5 bg-[#3b82f6]/20 text-[#3b82f6] rounded">
+              {viewMode === 'modern' ? 'BBG' : 'MOD'}
+            </span>
+          </button>
+        )}
         <button
           onClick={() => setCollapsed(!collapsed)}
           className="nav-item w-full justify-center"
@@ -423,6 +443,566 @@ const StrategiesPage = () => {
           </div>
         </div>
       </div>
+    </div>
+  );
+};
+
+// ============== 13F SEC FILINGS PAGE ==============
+const SECFilingsPage = ({ viewMode }) => {
+  const [filings, setFilings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedFiling, setSelectedFiling] = useState(null);
+  const [analyzing, setAnalyzing] = useState(null);
+  const [analysis, setAnalysis] = useState({});
+
+  useEffect(() => {
+    const fetchFilings = async () => {
+      try {
+        const res = await axios.get(`${API}/sec/13f`);
+        setFilings(res.data);
+      } catch (e) {
+        console.error("Error fetching 13F filings:", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchFilings();
+  }, []);
+
+  const analyzeFilng = async (fundId) => {
+    setAnalyzing(fundId);
+    try {
+      const res = await axios.post(`${API}/sec/13f/${fundId}/analyze`);
+      setAnalysis(prev => ({ ...prev, [fundId]: res.data.analysis }));
+    } catch (e) {
+      console.error("Error analyzing filing:", e);
+    } finally {
+      setAnalyzing(null);
+    }
+  };
+
+  if (loading) return <LoadingState />;
+
+  const isBloomberg = viewMode === 'bloomberg';
+
+  return (
+    <div data-testid="sec-filings-page" className={isBloomberg ? 'font-mono' : ''}>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">13F SEC FILINGS</h1>
+          <p className="page-subtitle">Top 10 Hedge Fund Quarterly Holdings (Q3 2025)</p>
+        </div>
+        <div className="text-xs text-[#71717a]">
+          Total AUM Tracked: ${(filings.reduce((a, b) => a + b.aum, 0) / 1e12).toFixed(2)}T
+        </div>
+      </div>
+
+      <div className="grid grid-cols-12 gap-4">
+        {/* Fund List */}
+        <div className={`col-span-4 quant-card ${isBloomberg ? 'bg-[#000] border-[#ff6600]/30' : ''}`} data-testid="fund-list">
+          <div className={`quant-card-header ${isBloomberg ? 'bg-[#ff6600] text-black' : ''}`}>
+            TOP HEDGE FUNDS BY AUM
+          </div>
+          <div className="max-h-[700px] overflow-y-auto">
+            {filings.sort((a, b) => b.aum - a.aum).map((filing, i) => (
+              <div
+                key={filing.id}
+                onClick={() => setSelectedFiling(filing)}
+                className={`p-3 border-b border-[#27272a]/50 cursor-pointer hover:bg-[#3b82f6]/5 ${
+                  selectedFiling?.id === filing.id ? 'bg-[#3b82f6]/10 border-l-2 border-l-[#3b82f6]' : ''
+                }`}
+                data-testid={`fund-${filing.id}`}
+              >
+                <div className="flex justify-between items-start mb-1">
+                  <div>
+                    <span className={`text-xs ${isBloomberg ? 'text-[#ff6600]' : 'text-[#3b82f6]'}`}>#{i + 1}</span>
+                    <span className="font-medium text-sm ml-2">{filing.fund_name}</span>
+                  </div>
+                  <span className={`font-mono text-xs ${filing.quarterly_change >= 0 ? 'text-profit' : 'text-loss'}`}>
+                    {filing.quarterly_change >= 0 ? '+' : ''}{filing.quarterly_change}%
+                  </span>
+                </div>
+                <div className="flex justify-between text-xs text-[#71717a]">
+                  <span>AUM: ${(filing.aum / 1e9).toFixed(1)}B</span>
+                  <span>{filing.quarter}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Filing Details */}
+        <div className="col-span-8 space-y-4">
+          {selectedFiling ? (
+            <>
+              <div className={`quant-card ${isBloomberg ? 'bg-[#000] border-[#ff6600]/30' : ''}`}>
+                <div className={`quant-card-header flex justify-between items-center ${isBloomberg ? 'bg-[#ff6600] text-black' : ''}`}>
+                  <span>{selectedFiling.fund_name}</span>
+                  <span className="text-xs">CIK: {selectedFiling.cik}</span>
+                </div>
+                <div className="p-4">
+                  <div className="grid grid-cols-4 gap-4 mb-6">
+                    <div>
+                      <div className="text-[10px] uppercase text-[#71717a]">AUM</div>
+                      <div className={`font-mono text-xl font-semibold ${isBloomberg ? 'text-[#00ff00]' : ''}`}>
+                        ${(selectedFiling.aum / 1e9).toFixed(1)}B
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] uppercase text-[#71717a]">Quarter</div>
+                      <div className="font-mono text-xl">{selectedFiling.quarter}</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] uppercase text-[#71717a]">QoQ Change</div>
+                      <div className={`font-mono text-xl ${selectedFiling.quarterly_change >= 0 ? 'text-profit' : 'text-loss'}`}>
+                        {selectedFiling.quarterly_change >= 0 ? '+' : ''}{selectedFiling.quarterly_change}%
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] uppercase text-[#71717a]">Filing Date</div>
+                      <div className="font-mono text-xl">{selectedFiling.filing_date}</div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Top Holdings */}
+                    <div>
+                      <h4 className="text-xs uppercase text-[#71717a] mb-3">Top 5 Holdings</h4>
+                      <table className="quant-table">
+                        <thead>
+                          <tr>
+                            <th>Symbol</th>
+                            <th>Value</th>
+                            <th>Weight</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {selectedFiling.top_holdings.map((h, i) => (
+                            <tr key={i}>
+                              <td className={`font-medium ${isBloomberg ? 'text-[#00ffff]' : 'text-[#3b82f6]'}`}>{h.symbol}</td>
+                              <td>${(h.value / 1e9).toFixed(2)}B</td>
+                              <td>{h.percent}%</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Sector Allocation */}
+                    <div>
+                      <h4 className="text-xs uppercase text-[#71717a] mb-3">Sector Allocation</h4>
+                      <div className="space-y-2">
+                        {Object.entries(selectedFiling.sector_allocation).map(([sector, pct], i) => (
+                          <div key={i}>
+                            <div className="flex justify-between text-xs mb-1">
+                              <span>{sector}</span>
+                              <span className="font-mono">{pct}%</span>
+                            </div>
+                            <div className="h-2 bg-[#27272a] rounded-sm overflow-hidden">
+                              <div 
+                                className={`h-full ${isBloomberg ? 'bg-[#ff6600]' : 'bg-[#3b82f6]'}`}
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* AI Analysis */}
+              <div className={`quant-card ${isBloomberg ? 'bg-[#000] border-[#ff6600]/30' : ''}`}>
+                <div className={`quant-card-header flex justify-between items-center ${isBloomberg ? 'bg-[#ff6600] text-black' : ''}`}>
+                  <span>AI Portfolio Analysis</span>
+                  <button
+                    onClick={() => analyzeFilng(selectedFiling.id)}
+                    disabled={analyzing === selectedFiling.id}
+                    className="btn-quant px-3 py-1 text-xs flex items-center gap-1"
+                    data-testid={`analyze-filing-${selectedFiling.id}`}
+                  >
+                    {analyzing === selectedFiling.id ? (
+                      <><RefreshCw size={12} className="animate-spin" /> Analyzing...</>
+                    ) : (
+                      <><Brain size={12} /> Analyze with AI</>
+                    )}
+                  </button>
+                </div>
+                <div className="p-4">
+                  {analysis[selectedFiling.id] ? (
+                    <div className={`text-sm whitespace-pre-wrap leading-relaxed ${isBloomberg ? 'text-[#00ff00]' : ''}`}>
+                      {analysis[selectedFiling.id]}
+                    </div>
+                  ) : (
+                    <div className="text-center text-[#71717a] py-8">
+                      Click "Analyze with AI" to get insights on this fund's portfolio positioning
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="quant-card p-12 text-center text-[#71717a]">
+              Select a fund from the list to view detailed 13F filing data
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============== GLOBAL HEATMAP PAGE ==============
+const GlobalHeatmapPage = ({ viewMode }) => {
+  const [indices, setIndices] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchIndices = async () => {
+    try {
+      const res = await axios.get(`${API}/market/indices`);
+      setIndices(res.data);
+    } catch (e) {
+      console.error("Error fetching indices:", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchIndices();
+    const interval = setInterval(fetchIndices, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  if (loading) return <LoadingState />;
+
+  const isBloomberg = viewMode === 'bloomberg';
+  const regions = {
+    'US': indices.filter(i => i.region === 'US'),
+    'Europe': indices.filter(i => ['UK', 'Germany', 'France'].includes(i.region)),
+    'Asia': indices.filter(i => ['Japan', 'Hong Kong', 'China', 'South Korea', 'India'].includes(i.region)),
+    'Other': indices.filter(i => ['Australia', 'Canada', 'Brazil', 'Russia'].includes(i.region)),
+  };
+
+  const getHeatColor = (change) => {
+    if (change >= 2) return isBloomberg ? 'bg-[#00ff00]' : 'bg-[#00e676]';
+    if (change >= 0.5) return isBloomberg ? 'bg-[#00cc00]' : 'bg-[#00e676]/70';
+    if (change >= 0) return isBloomberg ? 'bg-[#009900]' : 'bg-[#00e676]/40';
+    if (change >= -0.5) return isBloomberg ? 'bg-[#990000]' : 'bg-[#ef4444]/40';
+    if (change >= -2) return isBloomberg ? 'bg-[#cc0000]' : 'bg-[#ef4444]/70';
+    return isBloomberg ? 'bg-[#ff0000]' : 'bg-[#ef4444]';
+  };
+
+  const getTextColor = (change) => {
+    return change >= 0 ? (isBloomberg ? 'text-[#00ff00]' : 'text-profit') : (isBloomberg ? 'text-[#ff0000]' : 'text-loss');
+  };
+
+  return (
+    <div data-testid="global-heatmap-page" className={isBloomberg ? 'font-mono' : ''}>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">GLOBAL MARKET HEATMAP</h1>
+          <p className="page-subtitle">Real-time worldwide index performance</p>
+        </div>
+        <button onClick={fetchIndices} className="btn-quant px-3 py-2 flex items-center gap-2">
+          <RefreshCw size={14} strokeWidth={1.5} />
+          <span>Refresh</span>
+        </button>
+      </div>
+
+      {/* Summary Row */}
+      <div className="grid grid-cols-4 gap-4 mb-6">
+        {Object.entries(regions).map(([region, data]) => {
+          const avgChange = data.reduce((a, b) => a + b.change_percent, 0) / data.length;
+          return (
+            <div key={region} className={`quant-card ${isBloomberg ? 'bg-[#000] border-[#333]' : ''}`}>
+              <div className="p-4">
+                <div className="text-xs text-[#71717a] uppercase mb-1">{region}</div>
+                <div className={`font-mono text-2xl font-semibold ${getTextColor(avgChange)}`}>
+                  {avgChange >= 0 ? '+' : ''}{avgChange.toFixed(2)}%
+                </div>
+                <div className="text-xs text-[#71717a]">{data.length} indices</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Heatmap Grid */}
+      <div className={`quant-card ${isBloomberg ? 'bg-[#000] border-[#333]' : ''}`}>
+        <div className={`quant-card-header ${isBloomberg ? 'bg-[#333] text-[#ff6600]' : ''}`}>
+          FINANCIAL WORLD HEATMAP
+        </div>
+        <div className="p-4">
+          <div className="grid grid-cols-4 gap-3">
+            {indices.map((idx) => (
+              <div
+                key={idx.symbol}
+                className={`p-4 rounded-sm ${getHeatColor(idx.change_percent)} transition-all hover:scale-105 cursor-pointer`}
+                data-testid={`heatmap-${idx.symbol}`}
+              >
+                <div className="flex justify-between items-start mb-2">
+                  <span className={`font-bold text-sm ${Math.abs(idx.change_percent) > 1 ? 'text-black' : 'text-white'}`}>
+                    {idx.symbol}
+                  </span>
+                  <span className={`text-xs ${Math.abs(idx.change_percent) > 1 ? 'text-black/70' : 'text-white/70'}`}>
+                    {idx.region}
+                  </span>
+                </div>
+                <div className={`font-mono text-lg font-bold ${Math.abs(idx.change_percent) > 1 ? 'text-black' : 'text-white'}`}>
+                  {idx.change_percent >= 0 ? '+' : ''}{idx.change_percent.toFixed(2)}%
+                </div>
+                <div className={`text-xs ${Math.abs(idx.change_percent) > 1 ? 'text-black/70' : 'text-white/70'}`}>
+                  {idx.name}
+                </div>
+                <div className={`font-mono text-xs mt-1 ${Math.abs(idx.change_percent) > 1 ? 'text-black/60' : 'text-white/60'}`}>
+                  {idx.value.toLocaleString()}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Index Table */}
+      <div className={`quant-card mt-4 ${isBloomberg ? 'bg-[#000] border-[#333]' : ''}`}>
+        <div className={`quant-card-header ${isBloomberg ? 'bg-[#333] text-[#ff6600]' : ''}`}>
+          DETAILED INDEX DATA
+        </div>
+        <table className="quant-table">
+          <thead>
+            <tr className={isBloomberg ? 'bg-[#111]' : ''}>
+              <th>Symbol</th>
+              <th>Name</th>
+              <th>Region</th>
+              <th>Value</th>
+              <th>Change</th>
+              <th>% Change</th>
+              <th>YTD</th>
+            </tr>
+          </thead>
+          <tbody>
+            {indices.sort((a, b) => b.change_percent - a.change_percent).map((idx) => (
+              <tr key={idx.symbol} className={isBloomberg ? 'hover:bg-[#111]' : ''}>
+                <td className={`font-medium ${isBloomberg ? 'text-[#00ffff]' : 'text-[#3b82f6]'}`}>{idx.symbol}</td>
+                <td>{idx.name}</td>
+                <td>{idx.region}</td>
+                <td className="font-mono">{idx.value.toLocaleString()}</td>
+                <td className={`font-mono ${getTextColor(idx.change)}`}>
+                  {idx.change >= 0 ? '+' : ''}{idx.change.toFixed(2)}
+                </td>
+                <td className={`font-mono ${getTextColor(idx.change_percent)}`}>
+                  {idx.change_percent >= 0 ? '+' : ''}{idx.change_percent.toFixed(2)}%
+                </td>
+                <td className={`font-mono ${getTextColor(idx.ytd_percent)}`}>
+                  {idx.ytd_percent >= 0 ? '+' : ''}{idx.ytd_percent.toFixed(2)}%
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
+// ============== AUTOMATION HUB PAGE ==============
+const AutomationHubPage = ({ viewMode }) => {
+  const [modules, setModules] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedModule, setSelectedModule] = useState(null);
+  const [analyzing, setAnalyzing] = useState(null);
+  const [analysis, setAnalysis] = useState({});
+
+  useEffect(() => {
+    const fetchModules = async () => {
+      try {
+        const res = await axios.get(`${API}/automation/modules`);
+        setModules(res.data);
+      } catch (e) {
+        console.error("Error fetching automation modules:", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchModules();
+  }, []);
+
+  const analyzeModule = async (moduleId) => {
+    setAnalyzing(moduleId);
+    try {
+      const res = await axios.post(`${API}/automation/modules/${moduleId}/analyze`);
+      setAnalysis(prev => ({ ...prev, [moduleId]: res.data.analysis }));
+    } catch (e) {
+      console.error("Error analyzing module:", e);
+    } finally {
+      setAnalyzing(null);
+    }
+  };
+
+  const getCategoryIcon = (category) => {
+    const icons = {
+      'CORE': Cpu,
+      'DATA': Database,
+      'RISK': Shield,
+      'OPS': Workflow,
+      'IR': Users
+    };
+    return icons[category] || Bot;
+  };
+
+  const getCategoryColor = (category) => {
+    const colors = {
+      'CORE': '#3b82f6',
+      'DATA': '#8b5cf6',
+      'RISK': '#ef4444',
+      'OPS': '#f59e0b',
+      'IR': '#00e676'
+    };
+    return colors[category] || '#71717a';
+  };
+
+  if (loading) return <LoadingState />;
+
+  const isBloomberg = viewMode === 'bloomberg';
+
+  return (
+    <div data-testid="automation-hub-page" className={isBloomberg ? 'font-mono' : ''}>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">HEDGE FUND AUTOMATION HUB</h1>
+          <p className="page-subtitle">Enterprise automation modules for fund operations</p>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-[#00e676] animate-pulse" />
+            <span className="text-xs text-[#71717a]">{modules.filter(m => m.status === 'ACTIVE').length}/{modules.length} Active</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Module Cards */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
+        {modules.map((module) => {
+          const IconComponent = getCategoryIcon(module.category);
+          const color = getCategoryColor(module.category);
+          const hasAnalysis = analysis[module.id];
+          
+          return (
+            <div 
+              key={module.id} 
+              className={`quant-card cursor-pointer hover:border-[${color}]/50 transition-all ${
+                selectedModule?.id === module.id ? `border-[${color}]` : ''
+              } ${isBloomberg ? 'bg-[#000]' : ''}`}
+              onClick={() => setSelectedModule(module)}
+              data-testid={`automation-module-${module.id}`}
+            >
+              <div className="quant-card-header flex items-center justify-between" style={{ borderColor: `${color}30` }}>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded flex items-center justify-center" style={{ backgroundColor: `${color}20` }}>
+                    <IconComponent size={16} style={{ color }} strokeWidth={1.5} />
+                  </div>
+                  <span className="font-medium text-[#ededed] normal-case text-sm">{module.name}</span>
+                </div>
+                <div className={`w-2 h-2 rounded-full ${module.status === 'ACTIVE' ? 'bg-[#00e676] animate-pulse' : 'bg-[#71717a]'}`} />
+              </div>
+              
+              <div className="p-4">
+                <p className="text-xs text-[#a1a1aa] mb-4 line-clamp-2">{module.description}</p>
+                
+                {/* Key Metrics */}
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  {Object.entries(module.metrics).slice(0, 4).map(([key, value]) => (
+                    <div key={key}>
+                      <div className="text-[9px] uppercase text-[#71717a]">{key.replace(/_/g, ' ')}</div>
+                      <div className={`font-mono text-sm ${isBloomberg ? 'text-[#00ff00]' : ''}`}>
+                        {typeof value === 'number' ? (value < 1 ? (value * 100).toFixed(1) + '%' : value.toLocaleString()) : String(value)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Alerts */}
+                {module.alerts.length > 0 && (
+                  <div className="flex items-center gap-2 text-xs text-[#f59e0b] bg-[#f59e0b]/10 px-2 py-1 rounded">
+                    <AlertTriangle size={12} />
+                    <span>{module.alerts[0]}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="px-4 py-2 bg-[#000] border-t border-[#27272a] flex justify-between items-center">
+                <span className="text-[10px] px-2 py-0.5 rounded" style={{ backgroundColor: `${color}20`, color }}>
+                  {module.category}
+                </span>
+                <span className="text-[10px] text-[#71717a]">
+                  Last: {new Date(module.last_run).toLocaleTimeString()}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Selected Module Analysis */}
+      {selectedModule && (
+        <div className={`quant-card ${isBloomberg ? 'bg-[#000]' : ''}`}>
+          <div className="quant-card-header flex justify-between items-center">
+            <span>{selectedModule.name} - Detailed Analysis</span>
+            <button
+              onClick={() => analyzeModule(selectedModule.id)}
+              disabled={analyzing === selectedModule.id}
+              className="btn-quant px-3 py-1 text-xs flex items-center gap-1"
+              data-testid={`analyze-module-${selectedModule.id}`}
+            >
+              {analyzing === selectedModule.id ? (
+                <><RefreshCw size={12} className="animate-spin" /> Analyzing...</>
+              ) : (
+                <><Brain size={12} /> Get AI Optimization</>
+              )}
+            </button>
+          </div>
+          <div className="p-4">
+            <div className="grid grid-cols-2 gap-6">
+              <div>
+                <h4 className="text-xs uppercase text-[#71717a] mb-3">Full Description</h4>
+                <p className="text-sm text-[#a1a1aa] leading-relaxed">{selectedModule.description}</p>
+                
+                <h4 className="text-xs uppercase text-[#71717a] mt-4 mb-3">All Metrics</h4>
+                <div className="space-y-2">
+                  {Object.entries(selectedModule.metrics).map(([key, value]) => (
+                    <div key={key} className="flex justify-between items-center">
+                      <span className="text-xs text-[#71717a] capitalize">{key.replace(/_/g, ' ')}</span>
+                      <span className={`font-mono text-sm ${isBloomberg ? 'text-[#00ff00]' : ''}`}>
+                        {typeof value === 'number' ? (value < 1 && value > 0 ? (value * 100).toFixed(1) + '%' : value.toLocaleString()) : String(value)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              <div>
+                {analysis[selectedModule.id] ? (
+                  <div>
+                    <h4 className="text-xs uppercase text-[#71717a] mb-3 flex items-center gap-2">
+                      <Brain size={12} className="text-[#3b82f6]" />
+                      AI Optimization Analysis
+                    </h4>
+                    <div className={`text-sm whitespace-pre-wrap leading-relaxed bg-[#000] border border-[#27272a] rounded p-4 max-h-[400px] overflow-y-auto ${isBloomberg ? 'text-[#00ff00]' : ''}`}>
+                      {analysis[selectedModule.id]}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="h-full flex items-center justify-center text-[#71717a] text-sm">
+                    Click "Get AI Optimization" for performance recommendations
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -1685,24 +2265,33 @@ const StatRow = ({ label, value }) => (
 // ============== MAIN APP ==============
 function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [viewMode, setViewMode] = useState('modern'); // 'modern' or 'bloomberg'
 
   return (
-    <div className="app-container">
+    <div className={`app-container ${viewMode === 'bloomberg' ? 'bloomberg-mode' : ''}`}>
       <BrowserRouter>
-        <Sidebar collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} />
+        <Sidebar 
+          collapsed={sidebarCollapsed} 
+          setCollapsed={setSidebarCollapsed} 
+          viewMode={viewMode}
+          setViewMode={setViewMode}
+        />
         <main className={`main-content ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
           <Routes>
-            <Route path="/" element={<HubPage />} />
-            <Route path="/strategies" element={<StrategiesPage />} />
-            <Route path="/dashboard" element={<QuantDashboard />} />
-            <Route path="/macro" element={<MacroRegime />} />
-            <Route path="/intel" element={<WorldIntel />} />
-            <Route path="/terminal" element={<Terminal />} />
-            <Route path="/research" element={<ResearchQueue />} />
-            <Route path="/approvals" element={<Approvals />} />
-            <Route path="/health" element={<SystemHealth />} />
-            <Route path="/automation-v1" element={<AutomationV1 />} />
-            <Route path="/automation-v2" element={<AutomationV2 />} />
+            <Route path="/" element={<HubPage viewMode={viewMode} />} />
+            <Route path="/strategies" element={<StrategiesPage viewMode={viewMode} />} />
+            <Route path="/sec-filings" element={<SECFilingsPage viewMode={viewMode} />} />
+            <Route path="/heatmap" element={<GlobalHeatmapPage viewMode={viewMode} />} />
+            <Route path="/dashboard" element={<QuantDashboard viewMode={viewMode} />} />
+            <Route path="/macro" element={<MacroRegime viewMode={viewMode} />} />
+            <Route path="/intel" element={<WorldIntel viewMode={viewMode} />} />
+            <Route path="/terminal" element={<Terminal viewMode={viewMode} />} />
+            <Route path="/research" element={<ResearchQueue viewMode={viewMode} />} />
+            <Route path="/approvals" element={<Approvals viewMode={viewMode} />} />
+            <Route path="/health" element={<SystemHealth viewMode={viewMode} />} />
+            <Route path="/automation-hub" element={<AutomationHubPage viewMode={viewMode} />} />
+            <Route path="/automation-v1" element={<AutomationV1 viewMode={viewMode} />} />
+            <Route path="/automation-v2" element={<AutomationV2 viewMode={viewMode} />} />
           </Routes>
         </main>
       </BrowserRouter>

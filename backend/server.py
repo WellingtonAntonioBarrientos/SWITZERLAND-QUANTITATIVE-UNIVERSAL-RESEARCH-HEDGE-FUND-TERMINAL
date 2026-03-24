@@ -152,6 +152,301 @@ class AIQuery(BaseModel):
     query: str
     context: Optional[str] = None
 
+# 13F SEC Filing Model
+class SECFiling13F(BaseModel):
+    id: str
+    fund_name: str
+    cik: str
+    filing_date: str
+    quarter: str
+    aum: float
+    top_holdings: List[Dict[str, Any]]
+    sector_allocation: Dict[str, float]
+    quarterly_change: float
+
+# Global Index Model
+class GlobalIndex(BaseModel):
+    symbol: str
+    name: str
+    region: str
+    value: float
+    change: float
+    change_percent: float
+    ytd_percent: float
+
+# Automation Module Models
+class AutomationModule(BaseModel):
+    id: str
+    name: str
+    category: str
+    description: str
+    status: str
+    metrics: Dict[str, Any]
+    last_run: Optional[str]
+    alerts: List[str]
+
+# Mock 13F SEC Filings Data
+MOCK_13F_FILINGS = [
+    SECFiling13F(
+        id="bridgewater",
+        fund_name="Bridgewater Associates",
+        cik="0001350694",
+        filing_date="2025-11-14",
+        quarter="Q3 2025",
+        aum=124500000000,
+        top_holdings=[
+            {"symbol": "SPY", "shares": 22500000, "value": 10125000000, "percent": 8.1},
+            {"symbol": "IVV", "shares": 18200000, "value": 8190000000, "percent": 6.6},
+            {"symbol": "VWO", "shares": 45000000, "value": 1890000000, "percent": 1.5},
+            {"symbol": "GLD", "shares": 8500000, "value": 1615000000, "percent": 1.3},
+            {"symbol": "IEMG", "shares": 28000000, "value": 1484000000, "percent": 1.2},
+        ],
+        sector_allocation={"Technology": 22.5, "Healthcare": 18.2, "Financials": 15.8, "Consumer": 12.4, "Energy": 8.9, "Other": 22.2},
+        quarterly_change=3.2
+    ),
+    SECFiling13F(
+        id="renaissance",
+        fund_name="Renaissance Technologies",
+        cik="0001037389",
+        filing_date="2025-11-14",
+        quarter="Q3 2025",
+        aum=98200000000,
+        top_holdings=[
+            {"symbol": "NVDA", "shares": 4500000, "value": 5850000000, "percent": 6.0},
+            {"symbol": "META", "shares": 3200000, "value": 1920000000, "percent": 2.0},
+            {"symbol": "NOVO", "shares": 15000000, "value": 1650000000, "percent": 1.7},
+            {"symbol": "MSFT", "shares": 3800000, "value": 1596000000, "percent": 1.6},
+            {"symbol": "AMZN", "shares": 7500000, "value": 1425000000, "percent": 1.5},
+        ],
+        sector_allocation={"Technology": 35.2, "Healthcare": 22.1, "Financials": 12.5, "Consumer": 10.8, "Industrials": 9.2, "Other": 10.2},
+        quarterly_change=5.8
+    ),
+    SECFiling13F(
+        id="citadel",
+        fund_name="Citadel Advisors",
+        cik="0001423053",
+        filing_date="2025-11-14",
+        quarter="Q3 2025",
+        aum=87600000000,
+        top_holdings=[
+            {"symbol": "AAPL", "shares": 12000000, "value": 2640000000, "percent": 3.0},
+            {"symbol": "TSLA", "shares": 8500000, "value": 2125000000, "percent": 2.4},
+            {"symbol": "GOOGL", "shares": 11000000, "value": 1870000000, "percent": 2.1},
+            {"symbol": "AMZN", "shares": 9200000, "value": 1748000000, "percent": 2.0},
+            {"symbol": "SPY", "shares": 3500000, "value": 1575000000, "percent": 1.8},
+        ],
+        sector_allocation={"Technology": 28.5, "Healthcare": 15.2, "Financials": 18.8, "Consumer": 14.2, "Energy": 10.5, "Other": 12.8},
+        quarterly_change=-1.2
+    ),
+    SECFiling13F(
+        id="twosigma",
+        fund_name="Two Sigma Investments",
+        cik="0001179392",
+        filing_date="2025-11-14",
+        quarter="Q3 2025",
+        aum=72400000000,
+        top_holdings=[
+            {"symbol": "SPY", "shares": 8500000, "value": 3825000000, "percent": 5.3},
+            {"symbol": "QQQ", "shares": 6200000, "value": 2790000000, "percent": 3.9},
+            {"symbol": "IWM", "shares": 12000000, "value": 2400000000, "percent": 3.3},
+            {"symbol": "NVDA", "shares": 1800000, "value": 2340000000, "percent": 3.2},
+            {"symbol": "MSFT", "shares": 4500000, "value": 1890000000, "percent": 2.6},
+        ],
+        sector_allocation={"Technology": 32.1, "Healthcare": 14.5, "Financials": 16.2, "Consumer": 11.8, "Industrials": 12.2, "Other": 13.2},
+        quarterly_change=2.4
+    ),
+    SECFiling13F(
+        id="millennium",
+        fund_name="Millennium Management",
+        cik="0001273087",
+        filing_date="2025-11-14",
+        quarter="Q3 2025",
+        aum=65800000000,
+        top_holdings=[
+            {"symbol": "AAPL", "shares": 9500000, "value": 2090000000, "percent": 3.2},
+            {"symbol": "MSFT", "shares": 4200000, "value": 1764000000, "percent": 2.7},
+            {"symbol": "AMZN", "shares": 8000000, "value": 1520000000, "percent": 2.3},
+            {"symbol": "META", "shares": 2400000, "value": 1440000000, "percent": 2.2},
+            {"symbol": "GOOGL", "shares": 7500000, "value": 1275000000, "percent": 1.9},
+        ],
+        sector_allocation={"Technology": 30.5, "Healthcare": 18.8, "Financials": 14.2, "Consumer": 13.5, "Energy": 9.8, "Other": 13.2},
+        quarterly_change=1.8
+    ),
+    SECFiling13F(
+        id="point72",
+        fund_name="Point72 Asset Management",
+        cik="0001603466",
+        filing_date="2025-11-14",
+        quarter="Q3 2025",
+        aum=45200000000,
+        top_holdings=[
+            {"symbol": "NVDA", "shares": 2200000, "value": 2860000000, "percent": 6.3},
+            {"symbol": "MSFT", "shares": 3500000, "value": 1470000000, "percent": 3.3},
+            {"symbol": "AAPL", "shares": 6000000, "value": 1320000000, "percent": 2.9},
+            {"symbol": "GOOGL", "shares": 6500000, "value": 1105000000, "percent": 2.4},
+            {"symbol": "META", "shares": 1600000, "value": 960000000, "percent": 2.1},
+        ],
+        sector_allocation={"Technology": 38.2, "Healthcare": 20.5, "Financials": 12.8, "Consumer": 10.2, "Industrials": 8.5, "Other": 9.8},
+        quarterly_change=4.5
+    ),
+    SECFiling13F(
+        id="deshaw",
+        fund_name="D.E. Shaw & Co.",
+        cik="0001009207",
+        filing_date="2025-11-14",
+        quarter="Q3 2025",
+        aum=52100000000,
+        top_holdings=[
+            {"symbol": "AAPL", "shares": 7800000, "value": 1716000000, "percent": 3.3},
+            {"symbol": "NVDA", "shares": 1200000, "value": 1560000000, "percent": 3.0},
+            {"symbol": "GOOGL", "shares": 8000000, "value": 1360000000, "percent": 2.6},
+            {"symbol": "AMZN", "shares": 6500000, "value": 1235000000, "percent": 2.4},
+            {"symbol": "TSLA", "shares": 4500000, "value": 1125000000, "percent": 2.2},
+        ],
+        sector_allocation={"Technology": 34.8, "Healthcare": 16.2, "Financials": 15.5, "Consumer": 12.8, "Energy": 8.2, "Other": 12.5},
+        quarterly_change=3.1
+    ),
+    SECFiling13F(
+        id="baupost",
+        fund_name="Baupost Group",
+        cik="0001061768",
+        filing_date="2025-11-14",
+        quarter="Q3 2025",
+        aum=28500000000,
+        top_holdings=[
+            {"symbol": "LNG", "shares": 18000000, "value": 2700000000, "percent": 9.5},
+            {"symbol": "VICI", "shares": 42000000, "value": 1260000000, "percent": 4.4},
+            {"symbol": "META", "shares": 1800000, "value": 1080000000, "percent": 3.8},
+            {"symbol": "FWONK", "shares": 12000000, "value": 960000000, "percent": 3.4},
+            {"symbol": "EBAY", "shares": 15000000, "value": 825000000, "percent": 2.9},
+        ],
+        sector_allocation={"Energy": 22.5, "Real Estate": 18.2, "Technology": 15.8, "Consumer": 14.2, "Healthcare": 12.5, "Other": 16.8},
+        quarterly_change=-0.8
+    ),
+    SECFiling13F(
+        id="elliott",
+        fund_name="Elliott Investment Management",
+        cik="0001048445",
+        filing_date="2025-11-14",
+        quarter="Q3 2025",
+        aum=38900000000,
+        top_holdings=[
+            {"symbol": "CRM", "shares": 5500000, "value": 1650000000, "percent": 4.2},
+            {"symbol": "TXN", "shares": 7200000, "value": 1440000000, "percent": 3.7},
+            {"symbol": "DHR", "shares": 5000000, "value": 1250000000, "percent": 3.2},
+            {"symbol": "PINS", "shares": 28000000, "value": 1120000000, "percent": 2.9},
+            {"symbol": "SWK", "shares": 10000000, "value": 950000000, "percent": 2.4},
+        ],
+        sector_allocation={"Technology": 28.5, "Industrials": 22.2, "Healthcare": 18.5, "Consumer": 12.8, "Financials": 8.5, "Other": 9.5},
+        quarterly_change=2.2
+    ),
+    SECFiling13F(
+        id="viking",
+        fund_name="Viking Global Investors",
+        cik="0001103804",
+        filing_date="2025-11-14",
+        quarter="Q3 2025",
+        aum=42600000000,
+        top_holdings=[
+            {"symbol": "UBER", "shares": 25000000, "value": 2000000000, "percent": 4.7},
+            {"symbol": "META", "shares": 3000000, "value": 1800000000, "percent": 4.2},
+            {"symbol": "MSFT", "shares": 4000000, "value": 1680000000, "percent": 3.9},
+            {"symbol": "V", "shares": 5500000, "value": 1540000000, "percent": 3.6},
+            {"symbol": "MA", "shares": 2800000, "value": 1400000000, "percent": 3.3},
+        ],
+        sector_allocation={"Technology": 32.5, "Financials": 18.8, "Healthcare": 16.2, "Consumer": 14.5, "Industrials": 8.8, "Other": 9.2},
+        quarterly_change=3.8
+    )
+]
+
+# Mock Global Indices Data
+def generate_global_indices():
+    indices = [
+        {"symbol": "SPX", "name": "S&P 500", "region": "US", "base": 5850},
+        {"symbol": "DJI", "name": "Dow Jones", "region": "US", "base": 43200},
+        {"symbol": "IXIC", "name": "NASDAQ", "region": "US", "base": 19800},
+        {"symbol": "RUT", "name": "Russell 2000", "region": "US", "base": 2380},
+        {"symbol": "FTSE", "name": "FTSE 100", "region": "UK", "base": 8250},
+        {"symbol": "DAX", "name": "DAX 40", "region": "Germany", "base": 19500},
+        {"symbol": "CAC", "name": "CAC 40", "region": "France", "base": 7650},
+        {"symbol": "N225", "name": "Nikkei 225", "region": "Japan", "base": 39800},
+        {"symbol": "HSI", "name": "Hang Seng", "region": "Hong Kong", "base": 19200},
+        {"symbol": "SSEC", "name": "Shanghai Comp", "region": "China", "base": 3380},
+        {"symbol": "SENSEX", "name": "BSE Sensex", "region": "India", "base": 81500},
+        {"symbol": "ASX", "name": "ASX 200", "region": "Australia", "base": 8450},
+        {"symbol": "TSX", "name": "TSX Composite", "region": "Canada", "base": 25200},
+        {"symbol": "IBOV", "name": "Bovespa", "region": "Brazil", "base": 128500},
+        {"symbol": "MOEX", "name": "MOEX Russia", "region": "Russia", "base": 2850},
+        {"symbol": "KOSPI", "name": "KOSPI", "region": "South Korea", "base": 2520},
+    ]
+    result = []
+    for idx in indices:
+        change = random.uniform(-3, 3)
+        result.append(GlobalIndex(
+            symbol=idx["symbol"],
+            name=idx["name"],
+            region=idx["region"],
+            value=round(idx["base"] * (1 + change/100), 2),
+            change=round(idx["base"] * change/100, 2),
+            change_percent=round(change, 2),
+            ytd_percent=round(random.uniform(-5, 25), 2)
+        ))
+    return result
+
+# Automation Modules Data
+AUTOMATION_MODULES = [
+    AutomationModule(
+        id="trading-strategy",
+        name="Automated Trading & Investment Strategy",
+        category="CORE",
+        description="Algorithms scan vast amounts of data to identify patterns, execute trades in milliseconds, and manage portfolio risk. Uses AI to analyze alternative data (satellite imagery, social media sentiment) to generate investment insights.",
+        status="ACTIVE",
+        metrics={"trades_today": 2847, "alpha_generated": 0.032, "latency_ms": 0.8, "data_sources": 156},
+        last_run=datetime.now(timezone.utc).isoformat(),
+        alerts=[]
+    ),
+    AutomationModule(
+        id="research-aggregation",
+        name="Research & Data Aggregation",
+        category="DATA",
+        description="Automation tools ingest, clean, and analyze market data from diverse sources (brokers, news feeds) in real-time, replacing manual data gathering.",
+        status="ACTIVE",
+        metrics={"feeds_active": 89, "events_processed": 15420, "latency_ms": 12, "accuracy": 99.7},
+        last_run=datetime.now(timezone.utc).isoformat(),
+        alerts=[]
+    ),
+    AutomationModule(
+        id="compliance-risk",
+        name="Compliance & Risk Management",
+        category="RISK",
+        description="Automated systems monitor trades against regulatory rules and pre-set risk limits (e.g., stopping trading if a 3% loss threshold is reached). Includes automated pre-trade checks and generating audit trails for regulators.",
+        status="ACTIVE",
+        metrics={"rules_checked": 342, "violations_blocked": 3, "var_utilization": 0.68, "audit_events": 8945},
+        last_run=datetime.now(timezone.utc).isoformat(),
+        alerts=["VaR approaching 70% threshold"]
+    ),
+    AutomationModule(
+        id="middle-office",
+        name="Operational & Middle Office Functions",
+        category="OPS",
+        description="RPA streamlines back-office processes like NAV (Net Asset Value) calculations, trade reconciliation, and investor reporting.",
+        status="ACTIVE",
+        metrics={"nav_calculated": True, "reconciliation_rate": 99.8, "pending_settlements": 12, "processed_today": 4521},
+        last_run=datetime.now(timezone.utc).isoformat(),
+        alerts=[]
+    ),
+    AutomationModule(
+        id="investor-relations",
+        name="Investor Relations & Reporting",
+        category="IR",
+        description="AI chatbots and automated workflows for generating personalized performance reports and summarizing investor communications.",
+        status="ACTIVE",
+        metrics={"reports_generated": 156, "queries_handled": 89, "satisfaction_score": 4.8, "response_time_min": 2.3},
+        last_run=datetime.now(timezone.utc).isoformat(),
+        alerts=[]
+    )
+]
+
 class HedgeFundStrategy(BaseModel):
     id: str
     name: str
@@ -717,6 +1012,150 @@ Provide:
     except Exception as e:
         logging.error(f"Strategy analysis error: {e}")
         return {"strategy_id": strategy_id, "error": str(e)}
+
+# 13F SEC Filings Endpoints
+@api_router.get("/sec/13f")
+async def get_13f_filings():
+    return [f.model_dump() for f in MOCK_13F_FILINGS]
+
+@api_router.get("/sec/13f/{fund_id}")
+async def get_13f_filing(fund_id: str):
+    for filing in MOCK_13F_FILINGS:
+        if filing.id == fund_id:
+            return filing.model_dump()
+    raise HTTPException(status_code=404, detail="Filing not found")
+
+@api_router.post("/sec/13f/{fund_id}/analyze")
+async def analyze_13f_filing(fund_id: str):
+    filing = None
+    for f in MOCK_13F_FILINGS:
+        if f.id == fund_id:
+            filing = f
+            break
+    
+    if not filing:
+        raise HTTPException(status_code=404, detail="Filing not found")
+    
+    try:
+        api_key = os.environ.get('EMERGENT_LLM_KEY')
+        if not api_key:
+            return {"error": "AI key not configured"}
+        
+        chat = LlmChat(
+            api_key=api_key,
+            session_id=f"13f-analysis-{fund_id}",
+            system_message="You are a senior hedge fund analyst specializing in 13F SEC filings analysis. Provide concise, actionable insights."
+        ).with_model("anthropic", "claude-sonnet-4-5-20250929")
+        
+        holdings_str = "\n".join([f"- {h['symbol']}: ${h['value']/1e9:.2f}B ({h['percent']}%)" for h in filing.top_holdings])
+        sector_str = "\n".join([f"- {k}: {v}%" for k, v in filing.sector_allocation.items()])
+        
+        prompt = f"""Analyze this 13F SEC filing for {filing.fund_name}:
+
+Fund: {filing.fund_name}
+AUM: ${filing.aum/1e9:.1f} Billion
+Quarter: {filing.quarter}
+Quarterly Change: {filing.quarterly_change}%
+
+Top Holdings:
+{holdings_str}
+
+Sector Allocation:
+{sector_str}
+
+Provide:
+1. Investment thesis summary (what is this fund betting on?)
+2. Key sector bets and their rationale
+3. Notable position changes to watch
+4. Potential signals for retail investors
+5. Risk factors in their portfolio"""
+        
+        response = await chat.send_message(UserMessage(text=prompt))
+        return {"fund_id": fund_id, "fund_name": filing.fund_name, "analysis": response}
+    except Exception as e:
+        logging.error(f"13F analysis error: {e}")
+        return {"fund_id": fund_id, "error": str(e)}
+
+# Global Indices / Heat Map Endpoints
+@api_router.get("/market/indices")
+async def get_global_indices():
+    return [idx.model_dump() for idx in generate_global_indices()]
+
+@api_router.get("/market/heatmap")
+async def get_market_heatmap():
+    indices = generate_global_indices()
+    regions = {}
+    for idx in indices:
+        if idx.region not in regions:
+            regions[idx.region] = []
+        regions[idx.region].append({
+            "symbol": idx.symbol,
+            "name": idx.name,
+            "change_percent": idx.change_percent,
+            "ytd_percent": idx.ytd_percent
+        })
+    return {"regions": regions, "timestamp": datetime.now(timezone.utc).isoformat()}
+
+# Automation Hub Endpoints
+@api_router.get("/automation/modules")
+async def get_automation_modules():
+    return [m.model_dump() for m in AUTOMATION_MODULES]
+
+@api_router.get("/automation/modules/{module_id}")
+async def get_automation_module(module_id: str):
+    for module in AUTOMATION_MODULES:
+        if module.id == module_id:
+            return module.model_dump()
+    raise HTTPException(status_code=404, detail="Module not found")
+
+@api_router.post("/automation/modules/{module_id}/analyze")
+async def analyze_automation_module(module_id: str):
+    module = None
+    for m in AUTOMATION_MODULES:
+        if m.id == module_id:
+            module = m
+            break
+    
+    if not module:
+        raise HTTPException(status_code=404, detail="Module not found")
+    
+    try:
+        api_key = os.environ.get('EMERGENT_LLM_KEY')
+        if not api_key:
+            return {"error": "AI key not configured"}
+        
+        chat = LlmChat(
+            api_key=api_key,
+            session_id=f"automation-analysis-{module_id}",
+            system_message="You are a hedge fund operations expert specializing in automation and technology. Provide optimization recommendations."
+        ).with_model("anthropic", "claude-sonnet-4-5-20250929")
+        
+        metrics_str = "\n".join([f"- {k}: {v}" for k, v in module.metrics.items()])
+        
+        prompt = f"""Analyze this automation module and provide optimization recommendations:
+
+Module: {module.name}
+Category: {module.category}
+Description: {module.description}
+Status: {module.status}
+
+Current Metrics:
+{metrics_str}
+
+Active Alerts: {', '.join(module.alerts) if module.alerts else 'None'}
+
+Provide:
+1. Performance assessment (is this module performing optimally?)
+2. Top 3 optimization recommendations
+3. Potential risks or bottlenecks
+4. Industry benchmarks comparison
+5. Next steps for improvement"""
+        
+        response = await chat.send_message(UserMessage(text=prompt))
+        return {"module_id": module_id, "module_name": module.name, "analysis": response}
+    except Exception as e:
+        logging.error(f"Automation analysis error: {e}")
+        return {"module_id": module_id, "error": str(e)}
 
 # Include the router in the main app
 app.include_router(api_router)

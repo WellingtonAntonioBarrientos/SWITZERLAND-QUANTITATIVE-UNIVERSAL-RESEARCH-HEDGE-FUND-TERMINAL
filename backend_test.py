@@ -245,6 +245,127 @@ class QuantFlowAPITester:
         print(f"\n🧠 Testing AI Query endpoint")
         self.run_test("AI Query", "POST", "ai/query", 200, test_query, timeout=60)
 
+    def test_13f_sec_filings_endpoints(self):
+        """Test 13F SEC Filings endpoints - NEW FEATURE"""
+        print("\n=== TESTING 13F SEC FILINGS ENDPOINTS (NEW FEATURE) ===")
+        
+        # Get all 13F filings
+        success, filings = self.run_test("Get 13F Filings", "GET", "sec/13f", 200)
+        
+        if success and filings:
+            print(f"   Found {len(filings)} hedge fund filings")
+            
+            # Verify we have 10 filings as expected
+            if len(filings) == 10:
+                print("✅ Correct number of 13F filings (10)")
+            else:
+                print(f"❌ Expected 10 filings, got {len(filings)}")
+            
+            # Test individual filing retrieval
+            if filings:
+                first_filing = filings[0]
+                fund_id = first_filing.get('id')
+                if fund_id:
+                    self.run_test(f"Get 13F Filing - {fund_id}", "GET", f"sec/13f/{fund_id}", 200)
+                    
+                    # Test AI analysis for 13F filing
+                    print(f"\n🧠 Testing AI Analysis for 13F filing: {fund_id}")
+                    success, analysis = self.run_test(f"AI Analysis 13F - {fund_id}", "POST", f"sec/13f/{fund_id}/analyze", 200, timeout=60)
+                    if success and analysis:
+                        if 'analysis' in analysis:
+                            print(f"✅ 13F AI Analysis successful - Response length: {len(str(analysis['analysis']))}")
+                        else:
+                            print(f"❌ 13F AI Analysis response missing 'analysis' field")
+
+    def test_global_indices_endpoints(self):
+        """Test Global Market Indices endpoints - NEW FEATURE"""
+        print("\n=== TESTING GLOBAL INDICES ENDPOINTS (NEW FEATURE) ===")
+        
+        # Get global indices
+        success, indices = self.run_test("Get Global Indices", "GET", "market/indices", 200)
+        
+        if success and indices:
+            print(f"   Found {len(indices)} global indices")
+            
+            # Verify we have 16 indices as expected
+            if len(indices) == 16:
+                print("✅ Correct number of global indices (16)")
+            else:
+                print(f"❌ Expected 16 indices, got {len(indices)}")
+            
+            # Verify indices have required fields
+            if indices:
+                first_index = indices[0]
+                required_fields = ['symbol', 'name', 'region', 'value', 'change', 'change_percent', 'ytd_percent']
+                missing_fields = [field for field in required_fields if field not in first_index]
+                if not missing_fields:
+                    print("✅ Global indices have all required fields")
+                else:
+                    print(f"❌ Missing fields in indices: {missing_fields}")
+        
+        # Get market heatmap
+        success, heatmap = self.run_test("Get Market Heatmap", "GET", "market/heatmap", 200)
+        
+        if success and heatmap:
+            if 'regions' in heatmap:
+                regions = heatmap['regions']
+                print(f"   Found {len(regions)} regions in heatmap")
+                expected_regions = ['US', 'Europe', 'Asia', 'Other']
+                for region in expected_regions:
+                    if region in regions:
+                        print(f"✅ Region {region} found with {len(regions[region])} indices")
+                    else:
+                        print(f"❌ Missing region: {region}")
+
+    def test_automation_hub_endpoints(self):
+        """Test Automation Hub endpoints - NEW FEATURE"""
+        print("\n=== TESTING AUTOMATION HUB ENDPOINTS (NEW FEATURE) ===")
+        
+        # Get automation modules
+        success, modules = self.run_test("Get Automation Modules", "GET", "automation/modules", 200)
+        
+        if success and modules:
+            print(f"   Found {len(modules)} automation modules")
+            
+            # Verify we have 5 modules as expected
+            if len(modules) == 5:
+                print("✅ Correct number of automation modules (5)")
+            else:
+                print(f"❌ Expected 5 modules, got {len(modules)}")
+            
+            # Test individual module retrieval and analysis
+            if modules:
+                first_module = modules[0]
+                module_id = first_module.get('id')
+                if module_id:
+                    self.run_test(f"Get Automation Module - {module_id}", "GET", f"automation/modules/{module_id}", 200)
+                    
+                    # Test AI analysis for automation module
+                    print(f"\n🧠 Testing AI Analysis for automation module: {module_id}")
+                    success, analysis = self.run_test(f"AI Analysis Module - {module_id}", "POST", f"automation/modules/{module_id}/analyze", 200, timeout=60)
+                    if success and analysis:
+                        if 'analysis' in analysis:
+                            print(f"✅ Automation Module AI Analysis successful - Response length: {len(str(analysis['analysis']))}")
+                        else:
+                            print(f"❌ Automation Module AI Analysis response missing 'analysis' field")
+                
+                # Verify modules have required fields
+                required_fields = ['id', 'name', 'category', 'description', 'status', 'metrics', 'alerts']
+                for module in modules[:2]:  # Check first 2 modules
+                    missing_fields = [field for field in required_fields if field not in module]
+                    if not missing_fields:
+                        print(f"✅ Module {module.get('name', 'Unknown')} has all required fields")
+                    else:
+                        print(f"❌ Module {module.get('name', 'Unknown')} missing fields: {missing_fields}")
+                
+                # Verify expected categories
+                categories = set(m.get('category') for m in modules if m.get('category'))
+                expected_categories = {'CORE', 'DATA', 'RISK', 'OPS', 'IR'}
+                if categories == expected_categories:
+                    print(f"✅ All expected automation categories found: {categories}")
+                else:
+                    print(f"❌ Category mismatch. Expected: {expected_categories}, Found: {categories}")
+
     def run_all_tests(self):
         """Run all API tests"""
         print("🚀 Starting QuantFlow API Testing...")
@@ -256,7 +377,10 @@ class QuantFlowAPITester:
         self.test_macro_endpoints()
         self.test_intel_endpoints()
         self.test_system_endpoints()
-        self.test_strategies_endpoints()  # NEW FEATURE TESTING
+        self.test_strategies_endpoints()  # EXISTING FEATURE
+        self.test_13f_sec_filings_endpoints()  # NEW FEATURE
+        self.test_global_indices_endpoints()  # NEW FEATURE  
+        self.test_automation_hub_endpoints()  # NEW FEATURE
         self.test_research_endpoints()
         self.test_approvals_endpoints()
         self.test_automation_endpoints()

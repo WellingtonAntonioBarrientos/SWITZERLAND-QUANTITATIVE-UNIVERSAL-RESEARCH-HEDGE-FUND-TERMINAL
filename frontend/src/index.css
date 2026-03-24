@@ -342,3 +342,69 @@ input:focus, textarea:focus, select:focus {
     display: contents !important;
   }
 }
+
+/* Bloomberg Mode Styles */
+.bloomberg-mode {
+  --primary: #ff6600;
+  --accent: #00ff00;
+}
+
+.bloomberg-mode .quant-card {
+  background: #000000;
+  border-color: #333333;
+}
+
+.bloomberg-mode .quant-card-header {
+  background: #ff6600;
+  color: #000000;
+  font-weight: 700;
+}
+
+.bloomberg-mode .sidebar {
+  background: #000000;
+  border-color: #333333;
+}
+
+.bloomberg-mode .nav-item.active {
+  background: rgba(255, 102, 0, 0.2);
+  color: #ff6600;
+  border-left-color: #ff6600;
+}
+
+.bloomberg-mode .metric-value,
+.bloomberg-mode .font-mono {
+  color: #00ff00;
+}
+
+.bloomberg-mode .text-profit {
+  color: #00ff00 !important;
+}
+
+.bloomberg-mode .text-loss {
+  color: #ff0000 !important;
+}
+
+.bloomberg-mode .btn-quant:hover {
+  background: #ff6600;
+  border-color: #ff6600;
+}
+
+.bloomberg-mode input,
+.bloomberg-mode textarea,
+.bloomberg-mode select {
+  background: #000000 !important;
+  border-color: #ff6600 !important;
+  color: #00ff00 !important;
+}
+
+.bloomberg-mode .terminal-container {
+  border-color: #ff6600;
+}
+
+.bloomberg-mode .terminal-prompt {
+  color: #ff6600;
+}
+
+.bloomberg-mode .terminal-output {
+  color: #00ff00;
+}
