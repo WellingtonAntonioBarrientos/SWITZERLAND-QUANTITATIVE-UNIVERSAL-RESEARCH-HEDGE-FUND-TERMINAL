@@ -18,6 +18,7 @@ import {
   XAxis, YAxis, Tooltip, ResponsiveContainer, Cell
 } from "recharts";
 import GlobeGL from 'react-globe.gl';
+import { Surface3DChart, CorrelationMatrix3D, PriceHistory3D, MarketIndices3D } from './components/Surface3D';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -850,6 +851,7 @@ const SECFilingsPage = ({ viewMode }) => {
 const GlobalHeatmapPage = ({ viewMode }) => {
   const [indices, setIndices] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [heatmapView, setHeatmapView] = useState('2d'); // '2d' or '3d'
 
   const fetchIndices = async () => {
     try {
@@ -899,10 +901,28 @@ const GlobalHeatmapPage = ({ viewMode }) => {
           <h1 className="page-title">GLOBAL MARKET HEATMAP</h1>
           <p className="page-subtitle">Real-time worldwide index performance</p>
         </div>
-        <button onClick={fetchIndices} className="btn-quant px-3 py-2 flex items-center gap-2">
-          <RefreshCw size={14} strokeWidth={1.5} />
-          <span>Refresh</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <div className="flex border border-[#27272a] rounded-sm overflow-hidden">
+            <button 
+              onClick={() => setHeatmapView('2d')}
+              className={`px-3 py-1.5 text-[10px] uppercase ${heatmapView === '2d' ? 'bg-[#3b82f6] text-white' : 'text-[#71717a] hover:bg-[#27272a]'}`}
+              data-testid="heatmap-view-2d"
+            >
+              2D Grid
+            </button>
+            <button 
+              onClick={() => setHeatmapView('3d')}
+              className={`px-3 py-1.5 text-[10px] uppercase ${heatmapView === '3d' ? 'bg-[#3b82f6] text-white' : 'text-[#71717a] hover:bg-[#27272a]'}`}
+              data-testid="heatmap-view-3d"
+            >
+              3D Bars
+            </button>
+          </div>
+          <button onClick={fetchIndices} className="btn-quant px-3 py-2 flex items-center gap-2">
+            <RefreshCw size={14} strokeWidth={1.5} />
+            <span>Refresh</span>
+          </button>
+        </div>
       </div>
 
       {/* Summary Row */}
@@ -926,37 +946,42 @@ const GlobalHeatmapPage = ({ viewMode }) => {
       {/* Heatmap Grid */}
       <div className={`quant-card ${isBloomberg ? 'bg-[#000] border-[#333]' : ''}`}>
         <div className={`quant-card-header ${isBloomberg ? 'bg-[#333] text-[#ff6600]' : ''}`}>
-          FINANCIAL WORLD HEATMAP
+          FINANCIAL WORLD HEATMAP {heatmapView === '3d' && '• 3D View'}
         </div>
-        <div className="p-4">
-          <div className="grid grid-cols-4 gap-3">
-            {indices.map((idx) => (
-              <div
-                key={idx.symbol}
-                className={`p-4 rounded-sm ${getHeatColor(idx.change_percent)} transition-all hover:scale-105 cursor-pointer`}
-                data-testid={`heatmap-${idx.symbol}`}
-              >
-                <div className="flex justify-between items-start mb-2">
-                  <span className={`font-bold text-sm ${Math.abs(idx.change_percent) > 1 ? 'text-black' : 'text-white'}`}>
-                    {idx.symbol}
-                  </span>
-                  <span className={`text-xs ${Math.abs(idx.change_percent) > 1 ? 'text-black/70' : 'text-white/70'}`}>
-                    {idx.region}
-                  </span>
+        
+        {heatmapView === '3d' ? (
+          <MarketIndices3D indices={indices} height={450} />
+        ) : (
+          <div className="p-4">
+            <div className="grid grid-cols-4 gap-3">
+              {indices.map((idx) => (
+                <div
+                  key={idx.symbol}
+                  className={`p-4 rounded-sm ${getHeatColor(idx.change_percent)} transition-all hover:scale-105 cursor-pointer`}
+                  data-testid={`heatmap-${idx.symbol}`}
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <span className={`font-bold text-sm ${Math.abs(idx.change_percent) > 1 ? 'text-black' : 'text-white'}`}>
+                      {idx.symbol}
+                    </span>
+                    <span className={`text-xs ${Math.abs(idx.change_percent) > 1 ? 'text-black/70' : 'text-white/70'}`}>
+                      {idx.region}
+                    </span>
+                  </div>
+                  <div className={`font-mono text-lg font-bold ${Math.abs(idx.change_percent) > 1 ? 'text-black' : 'text-white'}`}>
+                    {idx.change_percent >= 0 ? '+' : ''}{idx.change_percent.toFixed(2)}%
+                  </div>
+                  <div className={`text-xs ${Math.abs(idx.change_percent) > 1 ? 'text-black/70' : 'text-white/70'}`}>
+                    {idx.name}
+                  </div>
+                  <div className={`font-mono text-xs mt-1 ${Math.abs(idx.change_percent) > 1 ? 'text-black/60' : 'text-white/60'}`}>
+                    {idx.value.toLocaleString()}
+                  </div>
                 </div>
-                <div className={`font-mono text-lg font-bold ${Math.abs(idx.change_percent) > 1 ? 'text-black' : 'text-white'}`}>
-                  {idx.change_percent >= 0 ? '+' : ''}{idx.change_percent.toFixed(2)}%
-                </div>
-                <div className={`text-xs ${Math.abs(idx.change_percent) > 1 ? 'text-black/70' : 'text-white/70'}`}>
-                  {idx.name}
-                </div>
-                <div className={`font-mono text-xs mt-1 ${Math.abs(idx.change_percent) > 1 ? 'text-black/60' : 'text-white/60'}`}>
-                  {idx.value.toLocaleString()}
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Index Table */}
@@ -1203,11 +1228,12 @@ const AutomationHubPage = ({ viewMode }) => {
 };
 
 // ============== QUANT DASHBOARD ==============
-const QuantDashboard = () => {
+const QuantDashboard = ({ viewMode }) => {
   const [marketData, setMarketData] = useState([]);
   const [chartData, setChartData] = useState([]);
   const [selectedSymbol, setSelectedSymbol] = useState("SPY");
   const [loading, setLoading] = useState(true);
+  const [chartView, setChartView] = useState('2d'); // '2d' or '3d'
 
   const fetchData = useCallback(async () => {
     try {
@@ -1230,6 +1256,8 @@ const QuantDashboard = () => {
     return () => clearInterval(interval);
   }, [fetchData]);
 
+  const isNautical = viewMode === 'nautical';
+
   if (loading) return <LoadingState />;
 
   return (
@@ -1239,10 +1267,28 @@ const QuantDashboard = () => {
           <h1 className="page-title">Quant Dashboard</h1>
           <p className="page-subtitle">Real-time market data & analytics</p>
         </div>
-        <button onClick={fetchData} className="btn-quant px-3 py-2 flex items-center gap-2">
-          <RefreshCw size={14} strokeWidth={1.5} />
-          <span>Refresh</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <div className="flex border border-[#27272a] rounded-sm overflow-hidden">
+            <button 
+              onClick={() => setChartView('2d')}
+              className={`px-3 py-1.5 text-[10px] uppercase ${chartView === '2d' ? 'bg-[#3b82f6] text-white' : 'text-[#71717a] hover:bg-[#27272a]'}`}
+              data-testid="chart-view-2d"
+            >
+              2D
+            </button>
+            <button 
+              onClick={() => setChartView('3d')}
+              className={`px-3 py-1.5 text-[10px] uppercase ${chartView === '3d' ? 'bg-[#3b82f6] text-white' : 'text-[#71717a] hover:bg-[#27272a]'}`}
+              data-testid="chart-view-3d"
+            >
+              3D Surface
+            </button>
+          </div>
+          <button onClick={fetchData} className="btn-quant px-3 py-2 flex items-center gap-2">
+            <RefreshCw size={14} strokeWidth={1.5} />
+            <span>Refresh</span>
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-12 gap-4">
@@ -1277,7 +1323,7 @@ const QuantDashboard = () => {
         {/* Main Chart */}
         <div className="col-span-6 quant-card" data-testid="main-chart">
           <div className="quant-card-header flex justify-between items-center">
-            <span>{selectedSymbol} - Price Chart</span>
+            <span>{selectedSymbol} - {chartView === '3d' ? '3D Price Terrain' : 'Price Chart'}</span>
             <div className="flex gap-2">
               {['1D', '1W', '1M'].map(period => (
                 <button key={period} className="px-2 py-1 text-[10px] btn-quant">
@@ -1286,44 +1332,51 @@ const QuantDashboard = () => {
               ))}
             </div>
           </div>
-          <div className="p-4 h-[400px] chart-container">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData.slice(-50)}>
-                <defs>
-                  <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="timestamp" hide />
-                <YAxis domain={['auto', 'auto']} hide />
-                <Tooltip
-                  contentStyle={{ background: '#0a0a0a', border: '1px solid #27272a', borderRadius: '2px' }}
-                  labelStyle={{ color: '#71717a' }}
-                  itemStyle={{ color: '#3b82f6' }}
-                  formatter={(value) => [`$${value.toFixed(2)}`, 'Price']}
-                />
-                <Area type="monotone" dataKey="close" stroke="#3b82f6" fill="url(#colorPrice)" strokeWidth={1.5} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="p-4 h-[150px] chart-container border-t border-[#27272a]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData.slice(-50)}>
-                <XAxis dataKey="timestamp" hide />
-                <YAxis hide />
-                <Tooltip
-                  contentStyle={{ background: '#0a0a0a', border: '1px solid #27272a', borderRadius: '2px' }}
-                  formatter={(value) => [value.toLocaleString(), 'Volume']}
-                />
-                <Bar dataKey="volume" fill="#27272a">
-                  {chartData.slice(-50).map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.close >= entry.open ? '#00e676' : '#ef4444'} fillOpacity={0.5} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          
+          {chartView === '3d' ? (
+            <PriceHistory3D chartData={chartData} height={550} />
+          ) : (
+            <>
+              <div className="p-4 h-[400px] chart-container">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={chartData.slice(-50)}>
+                    <defs>
+                      <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={isNautical ? "#0ea5e9" : "#3b82f6"} stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor={isNautical ? "#0ea5e9" : "#3b82f6"} stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <XAxis dataKey="timestamp" hide />
+                    <YAxis domain={['auto', 'auto']} hide />
+                    <Tooltip
+                      contentStyle={{ background: '#0a0a0a', border: '1px solid #27272a', borderRadius: '2px' }}
+                      labelStyle={{ color: '#71717a' }}
+                      itemStyle={{ color: isNautical ? '#0ea5e9' : '#3b82f6' }}
+                      formatter={(value) => [`$${value.toFixed(2)}`, 'Price']}
+                    />
+                    <Area type="monotone" dataKey="close" stroke={isNautical ? "#0ea5e9" : "#3b82f6"} fill="url(#colorPrice)" strokeWidth={1.5} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="p-4 h-[150px] chart-container border-t border-[#27272a]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData.slice(-50)}>
+                    <XAxis dataKey="timestamp" hide />
+                    <YAxis hide />
+                    <Tooltip
+                      contentStyle={{ background: '#0a0a0a', border: '1px solid #27272a', borderRadius: '2px' }}
+                      formatter={(value) => [value.toLocaleString(), 'Volume']}
+                    />
+                    <Bar dataKey="volume" fill="#27272a">
+                      {chartData.slice(-50).map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.close >= entry.open ? '#00e676' : '#ef4444'} fillOpacity={0.5} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Order Book / Stats */}
@@ -1353,10 +1406,11 @@ const QuantDashboard = () => {
 };
 
 // ============== MACRO REGIME ==============
-const MacroRegime = () => {
+const MacroRegime = ({ viewMode }) => {
   const [regimeData, setRegimeData] = useState(null);
   const [correlation, setCorrelation] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [correlationView, setCorrelationView] = useState('2d'); // '2d' or '3d'
 
   useEffect(() => {
     const fetchData = async () => {
@@ -1384,6 +1438,22 @@ const MacroRegime = () => {
         <div>
           <h1 className="page-title">Macro Regime</h1>
           <p className="page-subtitle">Economic indicators & market regime</p>
+        </div>
+        <div className="flex border border-[#27272a] rounded-sm overflow-hidden">
+          <button 
+            onClick={() => setCorrelationView('2d')}
+            className={`px-3 py-1.5 text-[10px] uppercase ${correlationView === '2d' ? 'bg-[#3b82f6] text-white' : 'text-[#71717a] hover:bg-[#27272a]'}`}
+            data-testid="correlation-view-2d"
+          >
+            2D Matrix
+          </button>
+          <button 
+            onClick={() => setCorrelationView('3d')}
+            className={`px-3 py-1.5 text-[10px] uppercase ${correlationView === '3d' ? 'bg-[#3b82f6] text-white' : 'text-[#71717a] hover:bg-[#27272a]'}`}
+            data-testid="correlation-view-3d"
+          >
+            3D Surface
+          </button>
         </div>
       </div>
 
@@ -1450,35 +1520,46 @@ const MacroRegime = () => {
         </div>
 
         <div className="quant-card">
-          <div className="quant-card-header">Correlation Matrix</div>
-          <div className="p-4 overflow-x-auto">
-            <table className="quant-table text-xs">
-              <thead>
-                <tr>
-                  <th></th>
-                  {correlation?.assets?.map((asset, i) => (
-                    <th key={i} className="text-center">{asset}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {correlation?.assets?.map((asset, i) => (
-                  <tr key={i}>
-                    <td className="font-medium">{asset}</td>
-                    {correlation?.assets?.map((other, j) => {
-                      const val = correlation?.matrix?.[asset]?.[other];
-                      const color = val === 1 ? '#3b82f6' : val > 0 ? `rgba(0, 230, 118, ${Math.abs(val)})` : `rgba(239, 68, 68, ${Math.abs(val)})`;
-                      return (
-                        <td key={j} className="text-center" style={{ background: color, color: Math.abs(val) > 0.5 ? '#000' : '#ededed' }}>
-                          {val?.toFixed(2)}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="quant-card-header">
+            Correlation Matrix {correlationView === '3d' && '• 3D Surface'}
           </div>
+          
+          {correlationView === '3d' ? (
+            <CorrelationMatrix3D 
+              matrix={correlation?.matrix} 
+              assets={correlation?.assets} 
+              height={350}
+            />
+          ) : (
+            <div className="p-4 overflow-x-auto">
+              <table className="quant-table text-xs">
+                <thead>
+                  <tr>
+                    <th></th>
+                    {correlation?.assets?.map((asset, i) => (
+                      <th key={i} className="text-center">{asset}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {correlation?.assets?.map((asset, i) => (
+                    <tr key={i}>
+                      <td className="font-medium">{asset}</td>
+                      {correlation?.assets?.map((other, j) => {
+                        const val = correlation?.matrix?.[asset]?.[other];
+                        const color = val === 1 ? '#3b82f6' : val > 0 ? `rgba(0, 230, 118, ${Math.abs(val)})` : `rgba(239, 68, 68, ${Math.abs(val)})`;
+                        return (
+                          <td key={j} className="text-center" style={{ background: color, color: Math.abs(val) > 0.5 ? '#000' : '#ededed' }}>
+                            {val?.toFixed(2)}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </div>
