@@ -1,0 +1,137 @@
+{
+  "project_name": "QuantFlow Terminal",
+  "design_philosophy": {
+    "aesthetic": "Quant Noir / Institutional Terminal",
+    "core_principles": [
+      "Data Density over White Space",
+      "Precision over Decoration",
+      "Dark Mode Only (Eye Strain Reduction)",
+      "High Contrast Data (Green/Red/White on Black)",
+      "Sharp Edges (No rounded corners larger than 2px)"
+    ],
+    "anti_patterns": [
+      "Soft shadows (Use outlines)",
+      "Large rounded corners (Use rounded-sm or none)",
+      "Gradients on backgrounds (Use solid or subtle noise)",
+      "Centered text (Left align everything)",
+      "Purple/Teal 'SaaS' colors"
+    ]
+  },
+  "typography": {
+    "font_family_heading": "Space Grotesk, sans-serif",
+    "font_family_body": "Inter, sans-serif",
+    "font_family_code": "JetBrains Mono, monospace",
+    "import_url": "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@300;400;500;600&display=swap",
+    "rules": "Headings in Space Grotesk (Uppercase preferred for H1). All numbers, tables, and data in JetBrains Mono. UI labels in Inter."
+  },
+  "colors": {
+    "palette": {
+      "background": "#050505",
+      "card": "#0A0A0A",
+      "border": "#27272a",
+      "primary": "#3b82f6",
+      "secondary": "#27272a",
+      "accent": "#00e676",
+      "destructive": "#ef4444",
+      "text_primary": "#ededed",
+      "text_secondary": "#a1a1aa",
+      "profit": "#00e676",
+      "loss": "#ef4444",
+      "neutral": "#71717a"
+    },
+    "css_vars": {
+      "--background": "0 0% 2%",
+      "--foreground": "0 0% 93%",
+      "--card": "0 0% 4%",
+      "--card-foreground": "0 0% 93%",
+      "--popover": "0 0% 4%",
+      "--popover-foreground": "0 0% 93%",
+      "--primary": "217 91% 60%",
+      "--primary-foreground": "0 0% 100%",
+      "--secondary": "240 4% 16%",
+      "--secondary-foreground": "0 0% 98%",
+      "--muted": "240 4% 16%",
+      "--muted-foreground": "240 5% 65%",
+      "--accent": "150 100% 45%",
+      "--accent-foreground": "0 0% 0%",
+      "--destructive": "0 84% 60%",
+      "--destructive-foreground": "0 0% 98%",
+      "--border": "240 6% 10%",
+      "--input": "240 6% 10%",
+      "--ring": "217 91% 60%",
+      "--radius": "0.125rem"
+    }
+  },
+  "layout": {
+    "grid_system": "Bento Grid (High Density)",
+    "spacing": "Compact (p-2, p-4, gap-2)",
+    "container": "w-full max-w-[1920px] mx-auto",
+    "sidebar": "Collapsible, Icon-only mode support, Fixed Left"
+  },
+  "components": {
+    "buttons": "Sharp edges (rounded-sm), uppercase text, 1px border. Hover: invert or glow.",
+    "cards": "Background #0A0A0A, Border 1px solid #27272a. Header separated by border. No shadow.",
+    "inputs": "Background #000, Border 1px #333. Focus: Border #3b82f6 (No ring blur). Font: JetBrains Mono.",
+    "tables": "Dense rows (h-8 or h-10). Header: Uppercase, text-xs, text-muted-foreground. Striped rows optional (opacity 0.02).",
+    "modals": "Backdrop blur-sm, Border 1px #333, Sharp corners.",
+    "charts": "Recharts. No grid lines (or very subtle #222). Tooltips: Custom dark style. Colors: Green/Red for price action, Blue/Purple for volume/indicators."
+  },
+  "image_urls": {
+    "world_intel_map": "https://images.pexels.com/photos/7412026/pexels-photo-7412026.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "quant_bg_texture": "https://images.unsplash.com/photo-1643962579745-bcaa05ffc573?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzR8MHwxfHNlYXJjaHw0fHxzdG9jayUyMG1hcmtldCUyMGNoYXJ0JTIwdHJhZGluZyUyMGFlc3RoZXRpYyUyMGFic3RyYWN0fGVufDB8fHx8MTc3NDMyNjA2N3ww&ixlib=rb-4.1.0&q=85",
+    "login_bg": "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzR8MHwxfHNlYXJjaHwxfHxzdG9jayUyMG1hcmtldCUyMGNoYXJ0JTIwdHJhZGluZyUyMGFlc3RoZXRpYyUyMGFic3RyYWN0fGVufDB8fHx8MTc3NDMyNjA2N3ww&ixlib=rb-4.1.0&q=85"
+  },
+  "modules": {
+    "dashboard_hub": {
+      "layout": "Grid of shortcut cards + System Health Summary + Top Market Movers",
+      "vibe": "Command Center"
+    },
+    "quant_dashboard": {
+      "layout": "3-column dense layout. Left: Asset List. Center: Main Chart (Large). Right: Order Book & Trades.",
+      "chart_style": "Candlestick, Green/Red, Volume bars below."
+    },
+    "macro_regime": {
+      "layout": "Bento grid of heatmaps and gauges.",
+      "components": "Regime Indicator (Inflation vs Growth), Correlation Matrix."
+    },
+    "world_intel_map": {
+      "layout": "Full screen relative container.",
+      "background": "Dark map image or GeoJSON rendering.",
+      "markers": "Pulsing radar dots (CSS animation) for events."
+    },
+    "terminal": {
+      "layout": "Console aesthetic. Black background. Green monospace text.",
+      "features": "Command history, Autocomplete, JSON output formatting."
+    },
+    "research_queue": {
+      "layout": "Kanban or List view.",
+      "components": "Status badges (PENDING, PROCESSING, ALPHA_FOUND)."
+    },
+    "approvals": {
+      "layout": "Data Table with Action Columns (Approve/Reject).",
+      "style": "High contrast rows for attention."
+    },
+    "system_health": {
+      "layout": "Grid of sparklines (CPU, Memory, Latency).",
+      "alert_style": "Blinking red indicators for failures."
+    },
+    "hedge_fund_automation_v1": {
+      "layout": "Form-based rule builder (IF [Condition] THEN [Action]).",
+      "style": "Simple logic builder."
+    },
+    "hedge_fund_automation_v2": {
+      "layout": "Split pane: Code Editor (Monaco style) | Debug Console.",
+      "vibe": "IDE / Developer Tool."
+    }
+  },
+  "universal_guidelines_for_main_agent": [
+    "IMMEDIATELY update /app/frontend/src/index.css with the provided CSS variables to establish the Dark Theme.",
+    "Add the Google Fonts import to /app/frontend/public/index.html head.",
+    "Use 'rounded-sm' or 'rounded-none' for ALL shadcn components to enforce the sharp 'Financial Terminal' look.",
+    "For charts, use Recharts with 'dark' theme overrides (hide grid lines, use custom tooltips).",
+    "Use 'lucide-react' icons with stroke-width={1.5} for a thin, precise look.",
+    "Ensure the sidebar is collapsible to maximize screen real estate for data.",
+    "Use the provided image_urls for section backgrounds where applicable (e.g., World Map, Login).",
+    "For 'Terminal', use a pure black background (#000000) distinct from the main app background (#050505)."
+  ]
+}
