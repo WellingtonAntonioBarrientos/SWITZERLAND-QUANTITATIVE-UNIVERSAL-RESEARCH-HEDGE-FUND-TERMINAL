@@ -101,3 +101,98 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: "Build a comprehensive quant financial application with landing page for SQH-Wellington's Terminal"
+
+frontend:
+  - task: "Landing Page Implementation"
+    implemented: true
+    working: true
+    file: "frontend/src/App.js (lines 186-433)"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Implemented landing page with hero section, stats, features, strategies, CTA, and footer. Routing configured: unauthenticated users see landing page at '/', authenticated users redirected to '/dashboard'. Login at '/login' works correctly. Tested manually with screenshots."
+
+  - task: "Authentication Flow with Landing Page"
+    implemented: true
+    working: true
+    file: "frontend/src/App.js (lines 2955-2976)"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Updated routing logic: unauthenticated users see LandingPage at '/' and LoginPage at '/login'. Authenticated users access dashboard. Root path redirects authenticated users to '/dashboard'. Logout returns to landing page. All flows tested and working."
+
+  - task: "Wellington Mode UI Theme Consistency"
+    implemented: true
+    working: "partial"
+    file: "frontend/src/index.css (wellington-mode styles)"
+    stuck_count: 0
+    priority: "low"
+    needs_retesting: false
+    status_history:
+        - working: "partial"
+          agent: "main"
+          comment: "Wellington mode class is applied correctly to app container, and sidebar/view mode button display the orange theme. However, most page content uses inline Tailwind classes (e.g., bg-[#0a0a0a], border-[#27272a]) that override the CSS file's Wellington theme colors. A comprehensive fix requires either: 1) Adding !important to all Wellington CSS rules, or 2) Refactoring all components to use conditional className based on viewMode prop. This is best done during the App.js refactoring task. Issue is cosmetic and non-blocking."
+
+  - task: "Password Change UI Component"
+    implemented: true
+    working: true
+    file: "frontend/src/App.js (lines 186-330, PasswordChangeModal component)"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Implemented password change modal with validation (8+ chars, password match), error/success messages, and auto-close on success. Integrated into sidebar with 'Change Password' button. Complete flow tested: validation errors, successful password change, login with new password, and password revert. All working correctly."
+
+backend:
+  - task: "Auth Verification Endpoint"
+    implemented: true
+    working: true
+    file: "backend/server.py (line 97-99)"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Endpoint exists and working correctly. Used by frontend to verify JWT tokens."
+
+  - task: "Password Change Endpoint"
+    implemented: true
+    working: true
+    file: "backend/server.py (lines 101-109)"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Backend endpoint '/api/auth/change-password' working correctly. Validates current password, updates hash, returns success. Tested with frontend integration."
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 1
+  run_ui: true
+
+test_plan:
+  current_focus:
+    - "Landing Page Implementation"
+    - "Authentication Flow with Landing Page"
+    - "Password Change UI Component"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+    - agent: "main"
+      message: "Completed: 1) Landing page with full routing (unauthenticated→landing, authenticated→dashboard, logout→landing). 2) Password change feature with modal UI, validation, backend integration. 3) Documented Wellington mode partial styling issue (requires refactoring, P2 priority). All features tested with screenshots. Ready for comprehensive testing via testing subagent before moving to refactoring task."
