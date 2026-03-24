@@ -270,19 +270,32 @@ const Sidebar = ({ collapsed, setCollapsed, viewMode, setViewMode, userEmail, on
       <div className="p-2 border-t border-[#27272a] space-y-2">
         {!collapsed && (
           <>
-            <button
-              onClick={() => setViewMode(viewMode === 'modern' ? 'wellington' : 'modern')}
-              className="nav-item w-full justify-between text-xs"
-              data-testid="view-mode-toggle"
-            >
-              <span className="flex items-center gap-2">
-                <Eye size={14} />
-                {viewMode === 'modern' ? 'Modern' : 'Wellington'}
-              </span>
-              <span className="text-[10px] px-1.5 py-0.5 bg-[#3b82f6]/20 text-[#3b82f6] rounded">
-                {viewMode === 'modern' ? 'WEL' : 'MOD'}
-              </span>
-            </button>
+            <div className="px-1 mb-2">
+              <div className="text-[9px] uppercase text-[#71717a] mb-1.5">View Mode</div>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => setViewMode('modern')}
+                  className={`flex-1 px-2 py-1.5 text-[10px] rounded-sm border transition-all ${viewMode === 'modern' ? 'bg-[#3b82f6] border-[#3b82f6] text-white' : 'border-[#27272a] text-[#71717a] hover:border-[#3b82f6]'}`}
+                  data-testid="view-mode-modern"
+                >
+                  Modern
+                </button>
+                <button
+                  onClick={() => setViewMode('wellington')}
+                  className={`flex-1 px-2 py-1.5 text-[10px] rounded-sm border transition-all ${viewMode === 'wellington' ? 'bg-[#ff6600] border-[#ff6600] text-black' : 'border-[#27272a] text-[#71717a] hover:border-[#ff6600]'}`}
+                  data-testid="view-mode-wellington"
+                >
+                  Wellington
+                </button>
+                <button
+                  onClick={() => setViewMode('nautical')}
+                  className={`flex-1 px-2 py-1.5 text-[10px] rounded-sm border transition-all ${viewMode === 'nautical' ? 'bg-[#0ea5e9] border-[#0ea5e9] text-white' : 'border-[#27272a] text-[#71717a] hover:border-[#0ea5e9]'}`}
+                  data-testid="view-mode-nautical"
+                >
+                  Nautical
+                </button>
+              </div>
+            </div>
             <button
               onClick={onLogout}
               className="nav-item w-full justify-start text-xs text-[#ef4444] hover:bg-[#ef4444]/10"
@@ -662,6 +675,7 @@ const SECFilingsPage = ({ viewMode }) => {
   if (loading) return <LoadingState />;
 
   const isBloomberg = viewMode === 'wellington';
+  const isNautical = viewMode === 'nautical';
 
   return (
     <div data-testid="sec-filings-page" className={isBloomberg ? 'font-mono' : ''}>
@@ -856,6 +870,7 @@ const GlobalHeatmapPage = ({ viewMode }) => {
   if (loading) return <LoadingState />;
 
   const isBloomberg = viewMode === 'wellington';
+  const isNautical = viewMode === 'nautical';
   const regions = {
     'US': indices.filter(i => i.region === 'US'),
     'Europe': indices.filter(i => ['UK', 'Germany', 'France'].includes(i.region)),
@@ -1044,6 +1059,7 @@ const AutomationHubPage = ({ viewMode }) => {
   if (loading) return <LoadingState />;
 
   const isBloomberg = viewMode === 'wellington';
+  const isNautical = viewMode === 'nautical';
 
   return (
     <div data-testid="automation-hub-page" className={isBloomberg ? 'font-mono' : ''}>
@@ -2444,7 +2460,7 @@ const StatRow = ({ label, value }) => (
 function App() {
   const { isAuthenticated, loading, userEmail, login, logout } = useAuth();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [viewMode, setViewMode] = useState('modern'); // 'modern' or 'wellington'
+  const [viewMode, setViewMode] = useState('modern'); // 'modern', 'wellington', or 'nautical'
 
   if (loading) {
     return (
@@ -2458,8 +2474,10 @@ function App() {
     return <LoginPage onLogin={login} />;
   }
 
+  const modeClass = viewMode === 'wellington' ? 'wellington-mode' : viewMode === 'nautical' ? 'nautical-mode' : '';
+
   return (
-    <div className={`app-container ${viewMode === 'wellington' ? 'wellington-mode' : ''}`}>
+    <div className={`app-container ${modeClass}`}>
       <BrowserRouter>
         <Sidebar 
           collapsed={sidebarCollapsed} 
