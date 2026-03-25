@@ -542,9 +542,45 @@ class HedgeFundStrategy(BaseModel):
     correlation: str
     key_factors: List[str]
     status: str = "ACTIVE"
+    roi_data: Optional[Dict[str, Any]] = None  # ROI breakdown data
 
 # Predefined Hedge Fund Strategies
 HEDGE_FUND_STRATEGIES = [
+    HedgeFundStrategy(
+        id="composite-portfolio",
+        name="Composite Portfolio Strategy",
+        category="Multi-Strategy",
+        description="A diversified master portfolio combining all 10 hedge fund strategies with optimized allocation weights. This composite approach provides comprehensive market exposure while balancing risk-return profiles across Equity, Macro, Credit, Quantitative, Arbitrage, Structured, Managed Futures, and Real Assets categories.",
+        risk_level="MEDIUM",
+        expected_return="9.2-14.8%",
+        correlation="0.15-0.35",
+        key_factors=["Diversification", "Risk Parity", "Multi-Asset Allocation", "Dynamic Rebalancing", "Correlation Management"],
+        roi_data={
+            "overall_roi": 11.5,
+            "strategies": [
+                {"id": "long-short-equity", "name": "Long/Short Equity", "allocation": 18, "roi": 12.3, "ytd": 8.7, "category": "Equity"},
+                {"id": "global-macro", "name": "Global Macro", "allocation": 15, "roi": 14.8, "ytd": 11.2, "category": "Macro"},
+                {"id": "event-driven-distressed", "name": "Event-Driven/Distressed", "allocation": 12, "roi": 15.2, "ytd": 9.8, "category": "Credit"},
+                {"id": "quant-multi-strategy", "name": "Quant Multi-Strategy", "allocation": 14, "roi": 11.7, "ytd": 10.1, "category": "Quantitative"},
+                {"id": "credit-risk-private", "name": "Credit Risk/Private Credit", "allocation": 10, "roi": 10.8, "ytd": 7.5, "category": "Credit"},
+                {"id": "relative-value-arbitrage", "name": "Relative Value Arbitrage", "allocation": 8, "roi": 7.9, "ytd": 6.2, "category": "Arbitrage"},
+                {"id": "ai-ml-trading", "name": "AI/ML Trading", "allocation": 12, "roi": 16.4, "ytd": 13.5, "category": "Quantitative"},
+                {"id": "active-amcs", "name": "Active AMCs", "allocation": 6, "roi": 9.5, "ytd": 7.8, "category": "Structured"},
+                {"id": "cta-trend-following", "name": "CTAs/Trend Following", "allocation": 8, "roi": 10.2, "ytd": 8.9, "category": "Managed Futures"},
+                {"id": "inflation-hedged-real-assets", "name": "Inflation-Hedged Real Assets", "allocation": 7, "roi": 8.1, "ytd": 6.5, "category": "Real Assets"}
+            ],
+            "categories": [
+                {"name": "Equity", "allocation": 18, "roi": 12.3, "risk": "MEDIUM", "strategies": 1},
+                {"name": "Macro", "allocation": 15, "roi": 14.8, "risk": "HIGH", "strategies": 1},
+                {"name": "Credit", "allocation": 22, "roi": 12.7, "risk": "MEDIUM-HIGH", "strategies": 2},
+                {"name": "Quantitative", "allocation": 26, "roi": 13.9, "risk": "MEDIUM", "strategies": 2},
+                {"name": "Arbitrage", "allocation": 8, "roi": 7.9, "risk": "LOW-MEDIUM", "strategies": 1},
+                {"name": "Structured", "allocation": 6, "roi": 9.5, "risk": "MEDIUM", "strategies": 1},
+                {"name": "Managed Futures", "allocation": 8, "roi": 10.2, "risk": "MEDIUM-HIGH", "strategies": 1},
+                {"name": "Real Assets", "allocation": 7, "roi": 8.1, "risk": "LOW-MEDIUM", "strategies": 1}
+            ]
+        }
+    ),
     HedgeFundStrategy(
         id="long-short-equity",
         name="Long/Short Equity",
