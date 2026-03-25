@@ -54,17 +54,6 @@ class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str
 
-class ResetRequest(BaseModel):
-    contact: str  # email or phone number
-
-class ResetPasswordRequest(BaseModel):
-    contact: str
-    reset_code: str
-    new_password: str
-
-# In-memory store for reset codes (in production, use Redis with TTL)
-reset_codes_store = {}  # {contact: {"code": "123456", "expires": datetime}}
-
 def verify_password(password: str) -> bool:
     return hashlib.sha256(password.encode()).hexdigest() == OWNER_PASSWORD_HASH
 
@@ -121,63 +110,6 @@ async def change_password(request: ChangePasswordRequest, current_user: str = De
     
     OWNER_PASSWORD_HASH = hashlib.sha256(request.new_password.encode()).hexdigest()
     return {"message": "Password changed successfully"}
-
-@api_router.post("/auth/request-reset")
-async def request_password_reset(request: ResetRequest):
-    """Send password reset code via SMS or Email"""
-    # Verify this is the owner's contact
-    if request.contact.lower() != OWNER_EMAIL.lower():
-        # For security, don't reveal if email exists or not
-        raise HTTPException(status_code=400, detail="If this contact is registered, you'll receive a reset code")
-    
-    # Generate 6-digit code
-    reset_code = str(random.randint(100000, 999999))
-    
-    # Store code with 15 minute expiration
-    reset_codes_store[request.contact.lower()] = {
-        "code": reset_code,
-        "expires": datetime.now(timezone.utc) + timedelta(minutes=15)
-    }
-    
-    # TODO: Send SMS/Email with reset code
-    # For now, log it (in production, integrate Twilio/SendGrid)
-    logging.info(f"PASSWORD RESET CODE for {request.contact}: {reset_code}")
-    print(f"🔑 PASSWORD RESET CODE for {request.contact}: {reset_code}")
-    
-    return {
-        "message": "Reset code sent to your contact",
-        "dev_code": reset_code  # REMOVE IN PRODUCTION - for testing only
-    }
-
-@api_router.post("/auth/reset-password")
-async def reset_password(request: ResetPasswordRequest):
-    """Verify reset code and update password"""
-    global OWNER_PASSWORD_HASH
-    
-    contact = request.contact.lower()
-    
-    # Check if reset code exists
-    if contact not in reset_codes_store:
-        raise HTTPException(status_code=400, detail="No reset request found")
-    
-    stored = reset_codes_store[contact]
-    
-    # Check expiration
-    if datetime.now(timezone.utc) > stored["expires"]:
-        del reset_codes_store[contact]
-        raise HTTPException(status_code=400, detail="Reset code expired")
-    
-    # Verify code
-    if stored["code"] != request.reset_code:
-        raise HTTPException(status_code=400, detail="Invalid reset code")
-    
-    # Update password
-    OWNER_PASSWORD_HASH = hashlib.sha256(request.new_password.encode()).hexdigest()
-    
-    # Clear reset code
-    del reset_codes_store[contact]
-    
-    return {"message": "Password reset successful"}
 
 # ============== MODELS ==============
 
