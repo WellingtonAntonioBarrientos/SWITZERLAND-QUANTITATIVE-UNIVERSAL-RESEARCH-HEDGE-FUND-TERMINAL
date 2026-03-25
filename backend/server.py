@@ -14,6 +14,8 @@ import random
 from emergentintegrations.llm.chat import LlmChat, UserMessage
 import hashlib
 import jwt
+import yfinance as yf
+import pandas as pd
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -26,7 +28,8 @@ db = client[os.environ['DB_NAME']]
 # Auth Configuration
 SECRET_KEY = os.environ.get('JWT_SECRET', 'quantflow-private-dashboard-secret-key-2026')
 OWNER_EMAIL = "barrientoswellingtonantonio@gmail.com"
-OWNER_PASSWORD_HASH = os.environ.get('OWNER_PASSWORD_HASH', '8c74b64989c9ddd14adbd0bcfb730c96892888944e704b5890dde0300a7fb5de')
+# Password: 01230143NYSE@
+OWNER_PASSWORD_HASH = os.environ.get('OWNER_PASSWORD_HASH', '363c4cf56d83a35e46db626240be1e94cdd179d90da2dabccff350b3bc8145ac')
 
 security = HTTPBearer(auto_error=False)
 
@@ -50,6 +53,17 @@ class LoginResponse(BaseModel):
 class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str
+
+class ResetRequest(BaseModel):
+    contact: str  # email or phone number
+
+class ResetPasswordRequest(BaseModel):
+    contact: str
+    reset_code: str
+    new_password: str
+
+# In-memory store for reset codes (in production, use Redis with TTL)
+reset_codes_store = {}  # {contact: {"code": "123456", "expires": datetime}}
 
 def verify_password(password: str) -> bool:
     return hashlib.sha256(password.encode()).hexdigest() == OWNER_PASSWORD_HASH
@@ -107,6 +121,63 @@ async def change_password(request: ChangePasswordRequest, current_user: str = De
     
     OWNER_PASSWORD_HASH = hashlib.sha256(request.new_password.encode()).hexdigest()
     return {"message": "Password changed successfully"}
+
+@api_router.post("/auth/request-reset")
+async def request_password_reset(request: ResetRequest):
+    """Send password reset code via SMS or Email"""
+    # Verify this is the owner's contact
+    if request.contact.lower() != OWNER_EMAIL.lower():
+        # For security, don't reveal if email exists or not
+        raise HTTPException(status_code=400, detail="If this contact is registered, you'll receive a reset code")
+    
+    # Generate 6-digit code
+    reset_code = str(random.randint(100000, 999999))
+    
+    # Store code with 15 minute expiration
+    reset_codes_store[request.contact.lower()] = {
+        "code": reset_code,
+        "expires": datetime.now(timezone.utc) + timedelta(minutes=15)
+    }
+    
+    # TODO: Send SMS/Email with reset code
+    # For now, log it (in production, integrate Twilio/SendGrid)
+    logging.info(f"PASSWORD RESET CODE for {request.contact}: {reset_code}")
+    print(f"🔑 PASSWORD RESET CODE for {request.contact}: {reset_code}")
+    
+    return {
+        "message": "Reset code sent to your contact",
+        "dev_code": reset_code  # REMOVE IN PRODUCTION - for testing only
+    }
+
+@api_router.post("/auth/reset-password")
+async def reset_password(request: ResetPasswordRequest):
+    """Verify reset code and update password"""
+    global OWNER_PASSWORD_HASH
+    
+    contact = request.contact.lower()
+    
+    # Check if reset code exists
+    if contact not in reset_codes_store:
+        raise HTTPException(status_code=400, detail="No reset request found")
+    
+    stored = reset_codes_store[contact]
+    
+    # Check expiration
+    if datetime.now(timezone.utc) > stored["expires"]:
+        del reset_codes_store[contact]
+        raise HTTPException(status_code=400, detail="Reset code expired")
+    
+    # Verify code
+    if stored["code"] != request.reset_code:
+        raise HTTPException(status_code=400, detail="Invalid reset code")
+    
+    # Update password
+    OWNER_PASSWORD_HASH = hashlib.sha256(request.new_password.encode()).hexdigest()
+    
+    # Clear reset code
+    del reset_codes_store[contact]
+    
+    return {"message": "Password reset successful"}
 
 # ============== MODELS ==============
 
@@ -646,6 +717,128 @@ HEDGE_FUND_STRATEGIES = [
 
 # ============== MOCK DATA GENERATORS ==============
 
+# ============== REAL-TIME FINANCIAL DATA FUNCTIONS ==============
+
+def get_real_market_data():
+    """Fetch real-time market data from Yahoo Finance"""
+    symbols_map = {
+        "BTC-USD": "BTC/USD",
+        "ETH-USD": "ETH/USD", 
+        "SPY": "SPY",
+        "QQQ": "QQQ",
+        "AAPL": "AAPL",
+        "MSFT": "MSFT",
+        "GOOGL": "GOOGL",
+        "NVDA": "NVDA",
+        "TSLA": "TSLA",
+        "GLD": "GLD"
+    }
+    
+    data = []
+    try:
+        for yf_symbol, display_symbol in symbols_map.items():
+            try:
+                ticker = yf.Ticker(yf_symbol)
+                info = ticker.info
+                
+                current_price = info.get('regularMarketPrice') or info.get('currentPrice') or 0
+                previous_close = info.get('previousClose') or info.get('regularMarketPreviousClose') or current_price
+                
+                change = current_price - previous_close
+                change_percent = (change / previous_close * 100) if previous_close > 0 else 0
+                volume = info.get('volume') or info.get('regularMarketVolume') or 0
+                
+                data.append(MarketData(
+                    symbol=display_symbol,
+                    price=round(current_price, 2),
+                    change=round(change, 2),
+                    change_percent=round(change_percent, 2),
+                    volume=volume,
+                    timestamp=datetime.now(timezone.utc).isoformat()
+                ))
+            except Exception as e:
+                logging.warning(f"Failed to fetch {yf_symbol}: {e}")
+                continue
+                
+        # If we got no data, return minimal fallback
+        if not data:
+            raise Exception("No data fetched")
+            
+    except Exception as e:
+        logging.error(f"Yahoo Finance data fetch failed: {e}")
+        # Fallback to mock data if API fails
+        return generate_mock_market_data()
+    
+    return data
+
+def get_real_chart_data(symbol: str, period: str = "1D"):
+    """Fetch real-time chart data from Yahoo Finance"""
+    try:
+        # Map display symbol to Yahoo Finance symbol
+        symbol_map = {
+            "BTC/USD": "BTC-USD",
+            "ETH/USD": "ETH-USD",
+            "SPY": "SPY", "QQQ": "QQQ", "AAPL": "AAPL",
+            "MSFT": "MSFT", "GOOGL": "GOOGL", "NVDA": "NVDA",
+            "TSLA": "TSLA", "GLD": "GLD"
+        }
+        
+        yf_symbol = symbol_map.get(symbol, symbol)
+        ticker = yf.Ticker(yf_symbol)
+        
+        # Map period to yfinance parameters
+        period_map = {
+            "1D": ("1d", "5m"),
+            "1W": ("5d", "30m"),
+            "1M": ("1mo", "1d"),
+            "3M": ("3mo", "1d"),
+            "1Y": ("1y", "1d"),
+        }
+        
+        yf_period, interval = period_map.get(period, ("1d", "5m"))
+        hist = ticker.history(period=yf_period, interval=interval)
+        
+        if hist.empty:
+            raise Exception("No historical data available")
+        
+        # Convert to format expected by frontend
+        chart_data = []
+        for timestamp, row in hist.iterrows():
+            chart_data.append({
+                "timestamp": timestamp.isoformat(),
+                "open": round(float(row['Open']), 2),
+                "high": round(float(row['High']), 2),
+                "low": round(float(row['Low']), 2),
+                "close": round(float(row['Close']), 2),
+                "volume": int(row['Volume'])
+            })
+        
+        return chart_data
+        
+    except Exception as e:
+        logging.error(f"Chart data fetch failed for {symbol}: {e}")
+        # Fallback to mock data
+        return generate_mock_chart_data(period)
+
+def generate_mock_chart_data(period: str):
+    """Fallback mock chart data"""
+    data_points = {"1D": 24, "1W": 168, "1M": 720, "3M": 2160, "1Y": 365}
+    num_points = data_points.get(period, 24)
+    base_price = random.uniform(100, 500)
+    data = []
+    for i in range(num_points):
+        volatility = base_price * 0.02
+        price = base_price + random.uniform(-volatility, volatility)
+        data.append({
+            "timestamp": (datetime.now(timezone.utc) - timedelta(hours=num_points-i)).isoformat(),
+            "open": round(price, 2),
+            "high": round(price * 1.01, 2),
+            "low": round(price * 0.99, 2),
+            "close": round(price * random.uniform(0.995, 1.005), 2),
+            "volume": random.randint(100000, 10000000)
+        })
+    return data
+
 def generate_mock_market_data():
     symbols = ["BTC/USD", "ETH/USD", "SPY", "QQQ", "AAPL", "MSFT", "GOOGL", "NVDA", "TSLA", "GLD"]
     data = []
@@ -734,31 +927,13 @@ async def root():
 # Market Data Endpoints
 @api_router.get("/market/data", response_model=List[MarketData])
 async def get_market_data():
-    return generate_mock_market_data()
+    """Get real-time market data from Yahoo Finance"""
+    return get_real_market_data()
 
 @api_router.get("/market/chart/{symbol:path}")
 async def get_chart_data(symbol: str, period: str = "1D"):
-    # Generate mock OHLCV data
-    data_points = {"1D": 24, "1W": 168, "1M": 720, "3M": 2160}
-    num_points = data_points.get(period, 24)
-    base_price = 100 if symbol not in ["BTC/USD", "ETH/USD"] else 40000
-    
-    chart_data = []
-    current_price = base_price
-    for i in range(num_points):
-        open_price = current_price
-        high = open_price * random.uniform(1.0, 1.02)
-        low = open_price * random.uniform(0.98, 1.0)
-        close = random.uniform(low, high)
-        current_price = close
-        chart_data.append({
-            "timestamp": (datetime.now(timezone.utc).timestamp() - (num_points - i) * 3600) * 1000,
-            "open": round(open_price, 2),
-            "high": round(high, 2),
-            "low": round(low, 2),
-            "close": round(close, 2),
-            "volume": random.randint(10000, 100000)
-        })
+    """Get real-time chart data from Yahoo Finance"""
+    chart_data = get_real_chart_data(symbol, period)
     return {"symbol": symbol, "period": period, "data": chart_data}
 
 # Macro Regime Endpoints

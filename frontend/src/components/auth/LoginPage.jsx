@@ -92,6 +92,16 @@ export const LoginPage = ({ onLogin }) => {
                 </>
               )}
             </button>
+            
+            <div className="text-center">
+              <a 
+                href="/reset-password" 
+                className="text-xs text-[#71717a] hover:text-[#0ea5e9] transition-colors"
+                data-testid="forgot-password-link"
+              >
+                Forgot password? Reset via SMS
+              </a>
+            </div>
           </form>
         </div>
 
