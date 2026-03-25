@@ -840,10 +840,27 @@ const HubPage = () => {
 const CompositeStrategyCard = ({ strategy }) => {
   const [view3D, setView3D] = useState(false);
   const [chartType, setChartType] = useState('strategies'); // 'strategies' or 'categories'
+  const [showOptimization, setShowOptimization] = useState(false);
+  const [optimization, setOptimization] = useState('');
+  const [loadingOptimization, setLoadingOptimization] = useState(false);
 
   if (!strategy.roi_data) return null;
 
   const { strategies: strategyROIs, categories: categoryROIs, overall_roi } = strategy.roi_data;
+
+  const handleGetOptimization = async () => {
+    setLoadingOptimization(true);
+    setShowOptimization(true);
+    
+    try {
+      const response = await axios.post(`${API}/strategies/composite/optimize`);
+      setOptimization(response.data.optimization);
+    } catch (error) {
+      setOptimization('Optimization service temporarily unavailable. Please try again.');
+    } finally {
+      setLoadingOptimization(false);
+    }
+  };
 
   // Prepare data for 3D visualization
   const strategy3DData = strategyROIs.map((s, idx) => ({
@@ -874,8 +891,23 @@ const CompositeStrategyCard = ({ strategy }) => {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-[#71717a] mr-2">Overall ROI:</span>
-          <span className="font-mono text-xl font-bold text-[#00e676]">{overall_roi}%</span>
+          <button
+            onClick={handleGetOptimization}
+            disabled={loadingOptimization}
+            className="px-4 py-2 bg-gradient-to-r from-[#3b82f6] to-[#0ea5e9] text-white rounded text-xs font-semibold hover:opacity-90 transition-opacity flex items-center gap-2 disabled:opacity-50"
+            data-testid="get-optimization-btn"
+          >
+            {loadingOptimization ? (
+              <RefreshCw size={12} className="animate-spin" />
+            ) : (
+              <Brain size={12} />
+            )}
+            Get AI Optimization
+          </button>
+          <div className="flex items-center gap-2 ml-2">
+            <span className="text-xs text-[#71717a] mr-1">Overall ROI:</span>
+            <span className="font-mono text-xl font-bold text-[#00e676]">{overall_roi}%</span>
+          </div>
         </div>
       </div>
 
@@ -1054,6 +1086,35 @@ const CompositeStrategyCard = ({ strategy }) => {
           </>
         )}
       </div>
+      
+      {/* AI Optimization Results */}
+      {showOptimization && (
+        <div className="border-t border-[#27272a]">
+          <div className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Brain size={16} className="text-[#0ea5e9]" />
+              <h3 className="text-sm font-semibold text-[#ededed] uppercase tracking-wider">
+                AI Portfolio Optimization Analysis
+              </h3>
+            </div>
+            
+            {loadingOptimization ? (
+              <div className="flex items-center justify-center py-12">
+                <RefreshCw className="animate-spin text-[#3b82f6] mr-3" size={24} />
+                <span className="text-[#a1a1aa]">Analyzing portfolio with advanced AI system...</span>
+              </div>
+            ) : (
+              <div className="bg-[#0a0a0a] border border-[#3b82f6]/20 rounded p-4">
+                <div className="prose prose-invert max-w-none">
+                  <div className="text-sm text-[#ededed] whitespace-pre-wrap leading-relaxed">
+                    {optimization}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

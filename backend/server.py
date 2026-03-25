@@ -16,6 +16,7 @@ import hashlib
 import jwt
 import yfinance as yf
 import pandas as pd
+from openclaw_service import OpenclawTradingAnalyzer
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -30,6 +31,10 @@ SECRET_KEY = os.environ.get('JWT_SECRET', 'quantflow-private-dashboard-secret-ke
 OWNER_EMAIL = "barrientoswellingtonantonio@gmail.com"
 # Password: 01230143NYSE@
 OWNER_PASSWORD_HASH = os.environ.get('OWNER_PASSWORD_HASH', '363c4cf56d83a35e46db626240be1e94cdd179d90da2dabccff350b3bc8145ac')
+
+# Initialize Openclaw AI Trading Analyzer
+EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', 'sk-emergent-fAc13EfFcA994F79cC')
+openclaw_analyzer = OpenclawTradingAnalyzer(api_key=EMERGENT_LLM_KEY)
 
 security = HTTPBearer(auto_error=False)
 
@@ -1196,47 +1201,46 @@ async def get_strategies_by_category(category: str):
 
 @api_router.post("/strategies/{strategy_id}/analyze")
 async def analyze_strategy(strategy_id: str):
-    strategy = None
-    for s in HEDGE_FUND_STRATEGIES:
-        if s.id == strategy_id:
-            strategy = s
-            break
+    """Advanced AI strategy analysis using Openclaw autonomous system"""
+    strategy = next((s for s in HEDGE_FUND_STRATEGIES if s.id == strategy_id), None)
     
     if not strategy:
         raise HTTPException(status_code=404, detail="Strategy not found")
     
     try:
-        api_key = os.environ.get('EMERGENT_LLM_KEY')
-        if not api_key:
-            return {"error": "AI key not configured"}
+        # Use Openclaw AI for advanced autonomous analysis
+        analysis = await openclaw_analyzer.analyze_strategy(
+            strategy.model_dump()
+        )
         
-        chat = LlmChat(
-            api_key=api_key,
-            session_id=f"strategy-analysis-{strategy_id}",
-            system_message="You are a senior hedge fund strategist. Provide concise, actionable analysis on investment strategies."
-        ).with_model("anthropic", "claude-sonnet-4-5-20250929")
-        
-        prompt = f"""Analyze this hedge fund strategy for current market conditions (2026):
-
-Strategy: {strategy.name}
-Category: {strategy.category}
-Description: {strategy.description}
-Risk Level: {strategy.risk_level}
-Expected Return: {strategy.expected_return}
-Market Correlation: {strategy.correlation}
-Key Factors: {', '.join(strategy.key_factors)}
-
-Provide:
-1. Current market outlook for this strategy (2-3 sentences)
-2. Key opportunities (2 bullet points)
-3. Primary risks to monitor (2 bullet points)
-4. Recommended allocation weight (as percentage of portfolio)"""
-        
-        response = await chat.send_message(UserMessage(text=prompt))
-        return {"strategy_id": strategy_id, "strategy_name": strategy.name, "analysis": response}
+        return {
+            "strategy_id": strategy_id,
+            "strategy_name": strategy.name,
+            "analysis": analysis,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "system": "AI Trading Optimization System"  # No Openclaw branding
+        }
     except Exception as e:
-        logging.error(f"Strategy analysis error: {e}")
+        logging.error(f"AI analysis error: {e}")
         return {"strategy_id": strategy_id, "error": str(e)}
+
+@api_router.post("/strategies/composite/optimize")
+async def optimize_composite_portfolio():
+    """Autonomous portfolio optimization using Openclaw AI"""
+    try:
+        strategies_data = [s.model_dump() for s in HEDGE_FUND_STRATEGIES]
+        
+        optimization = await openclaw_analyzer.optimize_composite_portfolio(strategies_data)
+        
+        return {
+            "optimization": optimization,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "system": "AI Portfolio Optimization System",
+            "strategies_analyzed": len(HEDGE_FUND_STRATEGIES)
+        }
+    except Exception as e:
+        logging.error(f"Portfolio optimization error: {e}")
+        return {"error": str(e)}
 
 # 13F SEC Filings Endpoints
 @api_router.get("/sec/13f")
