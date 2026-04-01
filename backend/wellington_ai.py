@@ -4,7 +4,7 @@
 from datetime import datetime, timezone
 from typing import List, Dict, Optional
 import logging
-from emergentintegrations.llm import LlmChat, UserMessage
+from emergentintegrations.llm.chat import LlmChat, UserMessage
 import os
 import base64
 from pathlib import Path

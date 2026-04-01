@@ -37,8 +37,8 @@ db = client[os.environ['DB_NAME']]
 # Auth Configuration
 SECRET_KEY = os.environ.get('JWT_SECRET', 'quantflow-private-dashboard-secret-key-2026')
 OWNER_EMAIL = "barrientoswellingtonantonio@gmail.com"
-# Password: 01230143NYSE@
-OWNER_PASSWORD_HASH = os.environ.get('OWNER_PASSWORD_HASH', '363c4cf56d83a35e46db626240be1e94cdd179d90da2dabccff350b3bc8145ac')
+# Password: 01230143NYSE1@
+OWNER_PASSWORD_HASH = os.environ.get('OWNER_PASSWORD_HASH', 'eb335aed7243045c98a4c3b649a88d19f16509a30e71c9cdd85ddce5aa686c26')
 
 # Initialize Openclaw AI Trading Analyzer
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', 'sk-emergent-fAc13EfFcA994F79cC')
