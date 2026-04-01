@@ -1145,6 +1145,9 @@ const PaperTradingPage = ({ viewMode }) => {
   const [showWellington, setShowWellington] = useState(false);
   const [autoTrading, setAutoTrading] = useState(false);
   const [wellingtonAnalysis, setWellingtonAnalysis] = useState(null);
+  const [uploadedFile, setUploadedFile] = useState(null);
+  const [uploadedImage, setUploadedImage] = useState(null);
+  const [urlInput, setUrlInput] = useState('');
 
   useEffect(() => {
     fetchAccountData();
@@ -1221,30 +1224,87 @@ const PaperTradingPage = ({ viewMode }) => {
 
   // Wellington AI Functions
   const sendWellingtonMessage = async () => {
-    if (!wellingtonInput.trim()) return;
+    if (!wellingtonInput.trim() && !uploadedFile && !uploadedImage && !urlInput) return;
     
-    const userMsg = wellingtonInput;
+    const userMsg = wellingtonInput || 'Analyze the uploaded content';
     setWellingtonInput('');
-    setWellingtonChat(prev => [...prev, { role: 'user', content: userMsg }]);
+    setWellingtonChat(prev => [...prev, { 
+      role: 'user', 
+      content: userMsg,
+      hasFile: !!uploadedFile,
+      hasImage: !!uploadedImage,
+      hasUrl: !!urlInput
+    }]);
     setWellingtonThinking(true);
     
     try {
-      const res = await axios.post(`${API}/wellington/chat`, {
-        message: userMsg,
-        include_context: true
-      });
+      let response;
+      
+      // Handle image upload
+      if (uploadedImage) {
+        const formData = new FormData();
+        formData.append('file', uploadedImage);
+        formData.append('prompt', userMsg);
+        
+        const res = await axios.post(`${API}/wellington/upload-image`, formData);
+        response = res.data.analysis;
+        setUploadedImage(null);
+      }
+      // Handle file upload
+      else if (uploadedFile) {
+        const formData = new FormData();
+        formData.append('file', uploadedFile);
+        formData.append('filename', uploadedFile.name);
+        
+        const res = await axios.post(`${API}/wellington/upload-file`, formData);
+        response = res.data.analysis;
+        setUploadedFile(null);
+      }
+      // Handle URL analysis
+      else if (urlInput) {
+        const formData = new FormData();
+        formData.append('url', urlInput);
+        
+        const res = await axios.post(`${API}/wellington/analyze-url`, formData);
+        response = res.data.analysis;
+        setUrlInput('');
+      }
+      // Regular chat
+      else {
+        const res = await axios.post(`${API}/wellington/chat`, {
+          message: userMsg,
+          include_context: true
+        });
+        response = res.data.response;
+      }
       
       setWellingtonChat(prev => [...prev, { 
         role: 'assistant', 
-        content: res.data.response 
+        content: response 
       }]);
     } catch (e) {
       setWellingtonChat(prev => [...prev, { 
         role: 'error', 
-        content: 'Error communicating with Wellington AI' 
+        content: 'Error communicating with Wellington AI: ' + (e.response?.data?.error || e.message)
       }]);
     } finally {
       setWellingtonThinking(false);
+    }
+  };
+
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file && file.type.startsWith('image/')) {
+      setUploadedImage(file);
+      setWellingtonInput(prev => prev || 'Analyze this chart/image');
+    }
+  };
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setUploadedFile(file);
+      setWellingtonInput(prev => prev || 'Analyze this document');
     }
   };
 
@@ -1458,13 +1518,76 @@ const PaperTradingPage = ({ viewMode }) => {
                   className="flex-1 px-3 py-2 bg-[#0a0a0a] border border-[#27272a] rounded text-sm"
                   disabled={wellingtonThinking}
                 />
+                
+                {/* File Upload Button */}
+                <label className="btn-quant px-3 py-2 text-sm cursor-pointer relative" title="Upload Document">
+                  <input
+                    type="file"
+                    accept=".pdf,.txt,.doc,.docx,.csv"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    disabled={wellingtonThinking}
+                  />
+                  📄
+                </label>
+                
+                {/* Image Upload Button */}
+                <label className="btn-quant px-3 py-2 text-sm cursor-pointer relative" title="Upload Image/Chart">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                    disabled={wellingtonThinking}
+                  />
+                  📊
+                </label>
+                
                 <button
                   onClick={sendWellingtonMessage}
-                  disabled={wellingtonThinking || !wellingtonInput.trim()}
+                  disabled={wellingtonThinking || (!wellingtonInput.trim() && !uploadedFile && !uploadedImage && !urlInput)}
                   className="btn-quant px-4 py-2 text-sm"
                 >
                   Send
                 </button>
+              </div>
+              
+              {/* Upload Previews & URL Input */}
+              <div className="p-2 bg-[#0a0a0a] border-t border-[#27272a]">
+                {/* URL Input Row */}
+                <div className="flex gap-2 mb-2">
+                  <input
+                    type="url"
+                    value={urlInput}
+                    onChange={(e) => setUrlInput(e.target.value)}
+                    placeholder="🔗 Paste website URL to analyze..."
+                    className="flex-1 px-3 py-1 bg-[#18181b] border border-[#27272a] rounded text-xs"
+                  />
+                  {urlInput && (
+                    <button
+                      onClick={() => setUrlInput('')}
+                      className="text-xs text-[#71717a] hover:text-white"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                
+                {/* File/Image Previews */}
+                <div className="flex gap-2 flex-wrap">
+                  {uploadedFile && (
+                    <div className="px-3 py-1 bg-[#3b82f6]/20 rounded text-xs flex items-center gap-2">
+                      📄 {uploadedFile.name}
+                      <button onClick={() => setUploadedFile(null)} className="text-loss">×</button>
+                    </div>
+                  )}
+                  {uploadedImage && (
+                    <div className="px-3 py-1 bg-[#00e676]/20 rounded text-xs flex items-center gap-2">
+                      📊 {uploadedImage.name}
+                      <button onClick={() => setUploadedImage(null)} className="text-loss">×</button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>

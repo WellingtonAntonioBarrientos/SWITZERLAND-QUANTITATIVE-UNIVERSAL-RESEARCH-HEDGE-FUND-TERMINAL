@@ -6,6 +6,8 @@ from typing import List, Dict, Optional
 import logging
 from emergentintegrations.llm import LlmChat, UserMessage
 import os
+import base64
+from pathlib import Path
 
 class WellingtonAI:
     """
@@ -16,6 +18,8 @@ class WellingtonAI:
     - Autonomous trading decisions
     - Learning from historical data
     - Real-time strategy optimization
+    - File & image analysis
+    - Website content extraction
     """
     
     def __init__(self, api_key: str):
@@ -28,6 +32,7 @@ class WellingtonAI:
             "market_insights": [],
             "strategy_adjustments": []
         }
+        self.analysis_cache = {}  # Cache for URL/file analyses
         
     def create_chat_session(self, session_id: str, system_message: str = None):
         """Create a new chat session with Wellington AI"""
@@ -130,13 +135,19 @@ Format as JSON:
         self.trading_history.append(trade)
         return trade
     
-    async def chat_with_wellington(self, user_message: str, context: Dict) -> str:
+    async def chat_with_wellington(self, user_message: str, context: Dict, 
+                                   image_data: Optional[str] = None,
+                                   file_content: Optional[str] = None,
+                                   url_content: Optional[str] = None) -> str:
         """
-        Chat interface for Wellington AI
+        Chat interface for Wellington AI with multimodal support
         
         Args:
             user_message: User's question/command
             context: Current app context (account, positions, market data)
+            image_data: Base64 encoded image for analysis
+            file_content: Extracted text from uploaded file
+            url_content: Extracted content from website
         
         Returns: Wellington AI's response
         """
@@ -145,18 +156,162 @@ Format as JSON:
         # Build context-aware prompt
         context_str = self._build_context_string(context)
         
+        # Build multimodal prompt
         full_prompt = f"""Context:
 {context_str}
 
-User: {user_message}
+User: {user_message}"""
 
-Respond as Wellington AI with actionable insights."""
+        # Add file content if provided
+        if file_content:
+            full_prompt += f"""
+
+Uploaded Document Content:
+```
+{file_content[:5000]}  # Limit to 5000 chars
+```
+
+Analyze this document in the context of financial markets and trading."""
+
+        # Add URL content if provided
+        if url_content:
+            full_prompt += f"""
+
+Website Content:
+```
+{url_content[:5000]}
+```
+
+Analyze this content and provide financial insights."""
+
+        full_prompt += "\n\nRespond as Wellington AI with actionable insights."
 
         try:
-            response = await chat.send_message(UserMessage(text=full_prompt))
+            # If image is provided, use vision capabilities
+            if image_data:
+                # Claude supports vision - send image with prompt
+                response = await chat.send_message(UserMessage(
+                    text=full_prompt,
+                    image_data=image_data  # Base64 image
+                ))
+            else:
+                response = await chat.send_message(UserMessage(text=full_prompt))
+            
             return response
         except Exception as e:
+            logging.error(f"Wellington chat error: {e}")
             return f"Wellington AI Error: {str(e)}"
+    
+    async def analyze_image(self, image_data: str, prompt: str = None) -> str:
+        """
+        Analyze financial charts, screenshots, or documents
+        
+        Args:
+            image_data: Base64 encoded image
+            prompt: Optional specific analysis request
+        
+        Returns: Wellington AI's analysis
+        """
+        chat = self.create_chat_session(f"image-analysis-{datetime.now().timestamp()}")
+        
+        if not prompt:
+            prompt = """Analyze this financial image/chart. Identify:
+1. Chart type (candlestick, line, bar, etc.)
+2. Timeframe and symbols
+3. Key technical patterns (support/resistance, trends, indicators)
+4. Trading signals (buy/sell opportunities)
+5. Risk assessment
+6. Recommended actions
+
+Provide a comprehensive analysis with specific price levels and actionable insights."""
+
+        try:
+            response = await chat.send_message(UserMessage(
+                text=prompt,
+                image_data=image_data
+            ))
+            return response
+        except Exception as e:
+            return f"Image analysis error: {str(e)}"
+    
+    async def analyze_url(self, url: str, content: str) -> str:
+        """
+        Analyze website content (news articles, reports, etc.)
+        
+        Args:
+            url: Website URL
+            content: Extracted text content
+        
+        Returns: Wellington AI's analysis
+        """
+        # Check cache
+        cache_key = f"url-{url}"
+        if cache_key in self.analysis_cache:
+            cached = self.analysis_cache[cache_key]
+            if (datetime.now(timezone.utc) - cached["timestamp"]).seconds < 3600:  # 1 hour cache
+                return cached["analysis"]
+        
+        chat = self.create_chat_session(f"url-analysis-{datetime.now().timestamp()}")
+        
+        prompt = f"""Analyze this financial content from {url}:
+
+{content[:5000]}
+
+Provide:
+1. Key takeaways and market impact
+2. Trading implications (which stocks/sectors affected)
+3. Sentiment analysis (bullish/bearish/neutral)
+4. Recommended actions for traders
+5. Risk factors mentioned
+
+Be concise and actionable."""
+
+        try:
+            response = await chat.send_message(UserMessage(text=prompt))
+            
+            # Cache the result
+            self.analysis_cache[cache_key] = {
+                "timestamp": datetime.now(timezone.utc),
+                "analysis": response
+            }
+            
+            return response
+        except Exception as e:
+            return f"URL analysis error: {str(e)}"
+    
+    async def analyze_file(self, file_content: str, filename: str) -> str:
+        """
+        Analyze uploaded documents (PDFs, financial reports, etc.)
+        
+        Args:
+            file_content: Extracted text content
+            filename: Original filename
+        
+        Returns: Wellington AI's analysis
+        """
+        chat = self.create_chat_session(f"file-analysis-{datetime.now().timestamp()}")
+        
+        file_type = Path(filename).suffix.lower()
+        
+        prompt = f"""Analyze this financial document ({filename}):
+
+{file_content[:8000]}  # Larger limit for files
+
+Provide:
+1. Document summary
+2. Key financial metrics/data points
+3. Investment insights
+4. Trading opportunities identified
+5. Risk factors
+6. Actionable recommendations
+
+Format: Clear sections with bullet points."""
+
+        try:
+            response = await chat.send_message(UserMessage(text=prompt))
+            return response
+        except Exception as e:
+            return f"File analysis error: {str(e)}"
     
     def learn_from_trade(self, trade_result: Dict):
         """

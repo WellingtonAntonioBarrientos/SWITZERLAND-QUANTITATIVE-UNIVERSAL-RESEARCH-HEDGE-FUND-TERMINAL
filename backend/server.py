@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, File, Form
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -11,6 +11,7 @@ from typing import List, Optional, Dict, Any
 import uuid
 from datetime import datetime, timezone, timedelta
 import random
+import base64
 from emergentintegrations.llm.chat import LlmChat, UserMessage
 import hashlib
 import jwt
@@ -1356,10 +1357,13 @@ async def reset_paper_account(user: dict = Depends(verify_token)):
 class WellingtonChatRequest(BaseModel):
     message: str
     include_context: bool = True
+    image_data: Optional[str] = None
+    file_content: Optional[str] = None
+    url_content: Optional[str] = None
 
 @api_router.post("/wellington/chat")
 async def chat_with_wellington(request: WellingtonChatRequest, user: dict = Depends(verify_token)):
-    """Chat with Wellington AI"""
+    """Chat with Wellington AI with multimodal support"""
     try:
         api_key = os.environ.get('EMERGENT_LLM_KEY')
         if not api_key:
@@ -1376,15 +1380,94 @@ async def chat_with_wellington(request: WellingtonChatRequest, user: dict = Depe
                 context = {
                     "account_value": account.get("total_value", 0),
                     "positions_count": len(account.get("positions", [])),
-                    "success_rate": 0,  # Will be calculated from trading history
+                    "success_rate": 0,
                     "recent_insights": []
                 }
         
-        response = await wellington.chat_with_wellington(request.message, context)
+        response = await wellington.chat_with_wellington(
+            request.message, 
+            context,
+            image_data=request.image_data,
+            file_content=request.file_content,
+            url_content=request.url_content
+        )
         
         return {"response": response, "timestamp": datetime.now(timezone.utc).isoformat()}
     except Exception as e:
         logging.error(f"Wellington chat error: {e}")
+        return {"error": str(e)}
+
+@api_router.post("/wellington/upload-image")
+async def wellington_upload_image(file: bytes = File(...), prompt: str = Form(None)):
+    """Upload and analyze image with Wellington AI"""
+    try:
+        api_key = os.environ.get('EMERGENT_LLM_KEY')
+        wellington = get_wellington_ai(api_key)
+        
+        # Convert to base64
+        image_data = base64.b64encode(file).decode('utf-8')
+        
+        # Analyze
+        analysis = await wellington.analyze_image(image_data, prompt)
+        
+        return {"analysis": analysis, "timestamp": datetime.now(timezone.utc).isoformat()}
+    except Exception as e:
+        return {"error": str(e)}
+
+@api_router.post("/wellington/analyze-url")
+async def wellington_analyze_url(url: str = Form(...)):
+    """Analyze website URL content"""
+    try:
+        api_key = os.environ.get('EMERGENT_LLM_KEY')
+        wellington = get_wellington_ai(api_key)
+        
+        # Fetch URL content using crawl_tool or requests
+        import requests
+        from bs4 import BeautifulSoup
+        
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        response = requests.get(url, headers=headers, timeout=10)
+        soup = BeautifulSoup(response.content, 'html.parser')
+        
+        # Extract text
+        for script in soup(["script", "style"]):
+            script.decompose()
+        text = soup.get_text()
+        lines = (line.strip() for line in text.splitlines())
+        content = '\n'.join(line for line in lines if line)
+        
+        # Analyze
+        analysis = await wellington.analyze_url(url, content)
+        
+        return {
+            "url": url,
+            "analysis": analysis,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+@api_router.post("/wellington/upload-file")
+async def wellington_upload_file(file: bytes = File(...), filename: str = Form(...)):
+    """Upload and analyze document file"""
+    try:
+        api_key = os.environ.get('EMERGENT_LLM_KEY')
+        wellington = get_wellington_ai(api_key)
+        
+        # Extract text based on file type
+        file_content = file.decode('utf-8', errors='ignore')  # Simple text extraction
+        
+        # For PDFs, you might want to use PyPDF2 or similar
+        # For now, treating as text
+        
+        analysis = await wellington.analyze_file(file_content, filename)
+        
+        return {
+            "filename": filename,
+            "analysis": analysis,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+    except Exception as e:
         return {"error": str(e)}
 
 @api_router.post("/wellington/analyze")
