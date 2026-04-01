@@ -11,7 +11,7 @@ import {
   Briefcase, Target, Shield, Brain, Coins, Scale, Cpu, 
   FileBarChart, TrendingDown, Building2, ChevronDown, ChevronUp,
   FileText, Map, Bot, Database, Users, Lock, Workflow,
-  BarChart3, PieChart, Eye, Layers, LogOut, Key
+  BarChart3, PieChart, Eye, Layers, LogOut, Key, DollarSign
 } from "lucide-react";
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar, 
@@ -586,6 +586,7 @@ const Sidebar = ({ collapsed, setCollapsed, viewMode, setViewMode, userEmail, on
   
   const navItems = [
     { path: "/dashboard", icon: Home, label: "Hub" },
+    { path: "/paper-trading", icon: DollarSign, label: "Paper Trading" },
     { path: "/strategies", icon: Briefcase, label: "Strategies" },
     { path: "/sec-filings", icon: FileText, label: "13F SEC Filings" },
     { path: "/heatmap", icon: Map, label: "Global Heatmap" },
@@ -1119,6 +1120,401 @@ const CompositeStrategyCard = ({ strategy }) => {
   );
 };
 
+
+
+// ============== PAPER TRADING PAGE ==============
+const PaperTradingPage = ({ viewMode }) => {
+  const [account, setAccount] = useState(null);
+  const [watchlist, setWatchlist] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedStock, setSelectedStock] = useState(null);
+  const [orderForm, setOrderForm] = useState({
+    orderType: 'MARKET',
+    side: 'BUY',
+    quantity: 100,
+    limitPrice: ''
+  });
+  const [placing, setPlacing] = useState(false);
+  const [message, setMessage] = useState(null);
+
+  useEffect(() => {
+    fetchAccountData();
+    fetchWatchlist();
+    const interval = setInterval(() => {
+      fetchAccountData();
+      fetchWatchlist();
+    }, 30000); // Auto-refresh every 30 seconds
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchAccountData = async () => {
+    try {
+      const res = await axios.get(`${API}/paper-trading/account`);
+      setAccount(res.data);
+    } catch (e) {
+      console.error("Error fetching account:", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchWatchlist = async () => {
+    try {
+      const res = await axios.get(`${API}/paper-trading/watchlist`);
+      setWatchlist(res.data);
+    } catch (e) {
+      console.error("Error fetching watchlist:", e);
+    }
+  };
+
+  const placeOrder = async () => {
+    if (!selectedStock) return;
+    
+    setPlacing(true);
+    setMessage(null);
+    
+    try {
+      const orderData = {
+        symbol: selectedStock.symbol,
+        name: selectedStock.name,
+        order_type: orderForm.orderType,
+        side: orderForm.side,
+        quantity: parseInt(orderForm.quantity),
+        price: orderForm.orderType === 'LIMIT' ? parseFloat(orderForm.limitPrice) : null,
+        hedge_fund: selectedStock.hedge_fund
+      };
+      
+      const res = await axios.post(`${API}/paper-trading/order`, orderData);
+      setMessage({ type: 'success', text: res.data.message });
+      
+      // Refresh data
+      await fetchAccountData();
+      
+      // Reset form
+      setOrderForm({ orderType: 'MARKET', side: 'BUY', quantity: 100, limitPrice: '' });
+    } catch (e) {
+      setMessage({ type: 'error', text: e.response?.data?.detail || 'Order failed' });
+    } finally {
+      setPlacing(false);
+    }
+  };
+
+  const resetAccount = async () => {
+    if (!window.confirm('Reset your paper trading account to $100,000,000? All positions and order history will be cleared.')) {
+      return;
+    }
+    
+    try {
+      await axios.post(`${API}/paper-trading/reset`);
+      setMessage({ type: 'success', text: 'Account reset successfully!' });
+      await fetchAccountData();
+    } catch (e) {
+      setMessage({ type: 'error', text: 'Reset failed' });
+    }
+  };
+
+  if (loading) return <LoadingState />;
+
+  const isBloomberg = viewMode === 'wellington';
+  const totalValue = account?.total_value || 0;
+  const cashBalance = account?.cash_balance || 0;
+  const totalPL = account?.total_pl || 0;
+  const totalPLPercent = account?.total_pl_percent || 0;
+
+  return (
+    <div data-testid="paper-trading-page" className={isBloomberg ? 'font-mono' : ''}>
+      {/* Header */}
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">PAPER TRADING</h1>
+          <p className="page-subtitle">Virtual Trading Simulator - Practice Without Risk</p>
+        </div>
+        <button
+          onClick={resetAccount}
+          className="btn-quant px-4 py-2 text-xs"
+        >
+          Reset Account
+        </button>
+      </div>
+
+      {/* Account Summary Bar */}
+      <div className={`quant-card mb-4 ${isBloomberg ? 'bg-[#000] border-[#ff6600]/30' : ''}`}>
+        <div className="p-4 grid grid-cols-5 gap-4">
+          <div>
+            <div className="text-xs text-[#71717a] uppercase mb-1">Account Value</div>
+            <div className="text-2xl font-mono">${(totalValue / 1e6).toFixed(2)}M</div>
+          </div>
+          <div>
+            <div className="text-xs text-[#71717a] uppercase mb-1">Cash Balance</div>
+            <div className="text-2xl font-mono">${(cashBalance / 1e6).toFixed(2)}M</div>
+          </div>
+          <div>
+            <div className="text-xs text-[#71717a] uppercase mb-1">Buying Power</div>
+            <div className="text-2xl font-mono text-[#0ea5e9]">${(cashBalance / 1e6).toFixed(2)}M</div>
+          </div>
+          <div>
+            <div className="text-xs text-[#71717a] uppercase mb-1">Total P&L</div>
+            <div className={`text-2xl font-mono ${totalPL >= 0 ? 'text-profit' : 'text-loss'}`}>
+              {totalPL >= 0 ? '+' : ''}${(totalPL / 1e6).toFixed(2)}M
+            </div>
+          </div>
+          <div>
+            <div className="text-xs text-[#71717a] uppercase mb-1">Return %</div>
+            <div className={`text-2xl font-mono ${totalPLPercent >= 0 ? 'text-profit' : 'text-loss'}`}>
+              {totalPLPercent >= 0 ? '+' : ''}{totalPLPercent.toFixed(2)}%
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Message Display */}
+      {message && (
+        <div className={`mb-4 p-3 rounded ${message.type === 'success' ? 'bg-profit/20 border border-profit/50' : 'bg-loss/20 border border-loss/50'}`}>
+          {message.text}
+        </div>
+      )}
+
+      <div className="grid grid-cols-12 gap-4">
+        {/* Left: Watchlist (50 items) */}
+        <div className="col-span-4">
+          <div className={`quant-card ${isBloomberg ? 'bg-[#000] border-[#ff6600]/30' : ''}`}>
+            <div className={`quant-card-header ${isBloomberg ? 'bg-[#ff6600] text-black' : ''}`}>
+              WATCHLIST (Top 5 from 10 Hedge Funds)
+            </div>
+            <div className="max-h-[700px] overflow-y-auto">
+              {watchlist.map((item, idx) => (
+                <div
+                  key={idx}
+                  onClick={() => setSelectedStock(item)}
+                  className={`p-2 border-b border-[#27272a] cursor-pointer transition-colors ${
+                    selectedStock?.symbol === item.symbol ? 'bg-[#3b82f6]/20' : 'hover:bg-[#18181b]'
+                  }`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-mono text-[10px] text-[#71717a]">#{item.position}</span>
+                        <span className={`font-mono text-sm font-bold ${isBloomberg ? 'text-[#00ffff]' : 'text-[#3b82f6]'}`}>
+                          {item.symbol}
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-[#a1a1aa] leading-tight mb-1">{item.name}</div>
+                      <div className="text-[9px] text-[#71717a]">{item.hedge_fund}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-mono text-xs">${item.current_price.toFixed(2)}</div>
+                      <div className={`font-mono text-[10px] ${item.change >= 0 ? 'text-profit' : 'text-loss'}`}>
+                        {item.change >= 0 ? '+' : ''}{item.change}%
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Center: Order Entry & Selected Stock Info */}
+        <div className="col-span-4">
+          <div className={`quant-card mb-4 ${isBloomberg ? 'bg-[#000] border-[#ff6600]/30' : ''}`}>
+            <div className={`quant-card-header ${isBloomberg ? 'bg-[#ff6600] text-black' : ''}`}>
+              ORDER ENTRY
+            </div>
+            <div className="p-4">
+              {selectedStock ? (
+                <>
+                  <div className="mb-4 p-3 bg-[#18181b] rounded">
+                    <div className="font-mono text-lg font-bold text-[#3b82f6]">{selectedStock.symbol}</div>
+                    <div className="text-xs text-[#a1a1aa] mb-2">{selectedStock.name}</div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-[#71717a]">Current Price</span>
+                      <span className="font-mono text-xl">${selectedStock.current_price.toFixed(2)}</span>
+                    </div>
+                  </div>
+
+                  {/* Order Type */}
+                  <div className="mb-3">
+                    <label className="text-xs text-[#71717a] uppercase mb-2 block">Order Type</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => setOrderForm({ ...orderForm, orderType: 'MARKET' })}
+                        className={`px-3 py-2 text-sm rounded ${
+                          orderForm.orderType === 'MARKET' ? 'bg-[#3b82f6] text-white' : 'bg-[#27272a] text-[#a1a1aa]'
+                        }`}
+                      >
+                        Market
+                      </button>
+                      <button
+                        onClick={() => setOrderForm({ ...orderForm, orderType: 'LIMIT' })}
+                        className={`px-3 py-2 text-sm rounded ${
+                          orderForm.orderType === 'LIMIT' ? 'bg-[#3b82f6] text-white' : 'bg-[#27272a] text-[#a1a1aa]'
+                        }`}
+                      >
+                        Limit
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Side */}
+                  <div className="mb-3">
+                    <label className="text-xs text-[#71717a] uppercase mb-2 block">Side</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => setOrderForm({ ...orderForm, side: 'BUY' })}
+                        className={`px-3 py-2 text-sm rounded ${
+                          orderForm.side === 'BUY' ? 'bg-profit text-white' : 'bg-[#27272a] text-[#a1a1aa]'
+                        }`}
+                      >
+                        BUY
+                      </button>
+                      <button
+                        onClick={() => setOrderForm({ ...orderForm, side: 'SELL' })}
+                        className={`px-3 py-2 text-sm rounded ${
+                          orderForm.side === 'SELL' ? 'bg-loss text-white' : 'bg-[#27272a] text-[#a1a1aa]'
+                        }`}
+                      >
+                        SELL
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Quantity */}
+                  <div className="mb-3">
+                    <label className="text-xs text-[#71717a] uppercase mb-2 block">Quantity</label>
+                    <input
+                      type="number"
+                      value={orderForm.quantity}
+                      onChange={(e) => setOrderForm({ ...orderForm, quantity: e.target.value })}
+                      className="w-full px-3 py-2 bg-[#18181b] border border-[#27272a] rounded font-mono"
+                      min="1"
+                    />
+                  </div>
+
+                  {/* Limit Price (if limit order) */}
+                  {orderForm.orderType === 'LIMIT' && (
+                    <div className="mb-3">
+                      <label className="text-xs text-[#71717a] uppercase mb-2 block">Limit Price</label>
+                      <input
+                        type="number"
+                        value={orderForm.limitPrice}
+                        onChange={(e) => setOrderForm({ ...orderForm, limitPrice: e.target.value })}
+                        className="w-full px-3 py-2 bg-[#18181b] border border-[#27272a] rounded font-mono"
+                        step="0.01"
+                        placeholder="Enter limit price"
+                      />
+                    </div>
+                  )}
+
+                  {/* Order Summary */}
+                  <div className="mb-4 p-3 bg-[#18181b] rounded text-xs">
+                    <div className="flex justify-between mb-1">
+                      <span className="text-[#71717a]">Estimated Cost</span>
+                      <span className="font-mono">
+                        ${(orderForm.quantity * (orderForm.orderType === 'LIMIT' && orderForm.limitPrice ? parseFloat(orderForm.limitPrice) : selectedStock.current_price)).toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[#71717a]">Available Buying Power</span>
+                      <span className="font-mono">${(cashBalance / 1e6).toFixed(2)}M</span>
+                    </div>
+                  </div>
+
+                  {/* Place Order Button */}
+                  <button
+                    onClick={placeOrder}
+                    disabled={placing || (orderForm.orderType === 'LIMIT' && !orderForm.limitPrice)}
+                    className="w-full btn-quant py-3 text-sm font-semibold"
+                  >
+                    {placing ? 'Placing Order...' : `Place ${orderForm.orderType} ${orderForm.side} Order`}
+                  </button>
+                </>
+              ) : (
+                <div className="text-center py-12 text-[#71717a]">
+                  Select a stock from the watchlist to trade
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Positions & Order History */}
+        <div className="col-span-4">
+          {/* Current Positions */}
+          <div className={`quant-card mb-4 ${isBloomberg ? 'bg-[#000] border-[#ff6600]/30' : ''}`}>
+            <div className={`quant-card-header ${isBloomberg ? 'bg-[#ff6600] text-black' : ''}`}>
+              POSITIONS ({account?.positions?.length || 0})
+            </div>
+            <div className="max-h-[350px] overflow-y-auto">
+              {account?.positions && account.positions.length > 0 ? (
+                <table className="quant-table">
+                  <thead>
+                    <tr>
+                      <th className="text-left">Symbol</th>
+                      <th className="text-right">Qty</th>
+                      <th className="text-right">Avg Cost</th>
+                      <th className="text-right">Current</th>
+                      <th className="text-right">P&L</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {account.positions.map((pos, idx) => (
+                      <tr key={idx}>
+                        <td className="font-mono font-bold text-[#3b82f6]">{pos.symbol}</td>
+                        <td className="text-right font-mono">{pos.quantity}</td>
+                        <td className="text-right font-mono text-xs">${pos.avg_cost.toFixed(2)}</td>
+                        <td className="text-right font-mono text-xs">${pos.current_price.toFixed(2)}</td>
+                        <td className={`text-right font-mono text-xs ${pos.unrealized_pl >= 0 ? 'text-profit' : 'text-loss'}`}>
+                          {pos.unrealized_pl >= 0 ? '+' : ''}${(pos.unrealized_pl / 1000).toFixed(1)}K
+                          <div className="text-[9px]">({pos.unrealized_pl_percent >= 0 ? '+' : ''}{pos.unrealized_pl_percent.toFixed(1)}%)</div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="text-center py-8 text-[#71717a] text-sm">No open positions</div>
+              )}
+            </div>
+          </div>
+
+          {/* Order History */}
+          <div className={`quant-card ${isBloomberg ? 'bg-[#000] border-[#ff6600]/30' : ''}`}>
+            <div className={`quant-card-header ${isBloomberg ? 'bg-[#ff6600] text-black' : ''}`}>
+              ORDER HISTORY (Last 10)
+            </div>
+            <div className="max-h-[280px] overflow-y-auto">
+              {account?.order_history && account.order_history.length > 0 ? (
+                <div className="p-2">
+                  {account.order_history.slice(-10).reverse().map((order, idx) => (
+                    <div key={idx} className="p-2 border-b border-[#27272a] text-xs">
+                      <div className="flex justify-between items-start mb-1">
+                        <span className="font-mono font-bold text-[#3b82f6]">{order.symbol}</span>
+                        <span className={`px-2 py-0.5 rounded text-[9px] ${
+                          order.status === 'FILLED' ? 'bg-profit/20 text-profit' : 'bg-[#71717a]/20 text-[#71717a]'
+                        }`}>
+                          {order.status}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-[10px] text-[#a1a1aa]">
+                        <span>{order.side} {order.quantity} @ ${order.filled_price?.toFixed(2) || order.price?.toFixed(2)}</span>
+                        <span>{order.order_type}</span>
+                      </div>
+                      <div className="text-[9px] text-[#71717a] mt-1">
+                        {new Date(order.timestamp).toLocaleString()}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-[#71717a] text-sm">No order history</div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // ============== HEDGE FUND STRATEGIES ==============
 const StrategiesPage = () => {
@@ -3767,6 +4163,7 @@ function App() {
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<HubPage viewMode={viewMode} />} />
+            <Route path="/paper-trading" element={<PaperTradingPage viewMode={viewMode} />} />
             <Route path="/strategies" element={<StrategiesPage viewMode={viewMode} />} />
             <Route path="/sec-filings" element={<SECFilingsPage viewMode={viewMode} />} />
             <Route path="/heatmap" element={<GlobalHeatmapPage viewMode={viewMode} />} />

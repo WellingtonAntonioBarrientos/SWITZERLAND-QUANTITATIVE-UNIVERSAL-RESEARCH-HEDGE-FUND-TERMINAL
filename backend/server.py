@@ -18,6 +18,11 @@ import yfinance as yf
 import pandas as pd
 from openclaw_service import OpenclawTradingAnalyzer
 from hedge_funds_data import TOP_10_HEDGE_FUNDS
+from paper_trading import (
+    create_default_account, execute_market_order, 
+    update_positions_prices, calculate_account_value, INITIAL_CAPITAL
+)
+from uuid import uuid4
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -1199,6 +1204,152 @@ Keep the analysis comprehensive but concise (under 600 words). Use clear section
         logging.error(f"Error analyzing all 13F filings: {e}")
         return {"error": str(e)}
 
+# ============== PAPER TRADING ENDPOINTS ==============
+
+@api_router.get("/paper-trading/account")
+async def get_paper_account(user: dict = Depends(verify_token)):
+    """Get or create user's paper trading account"""
+    user_id = user["email"]
+    
+    account = await db.paper_accounts.find_one({"user_id": user_id}, {"_id": 0})
+    
+    if not account:
+        account = create_default_account(user_id)
+        await db.paper_accounts.insert_one(account)
+    
+    if account["positions"]:
+        symbols = [p["symbol"] for p in account["positions"]]
+        price_data = {}
+        for symbol in symbols:
+            try:
+                ticker = yf.Ticker(symbol)
+                hist = ticker.history(period="1d")
+                if not hist.empty:
+                    price_data[symbol] = float(hist['Close'].iloc[-1])
+            except:
+                pass
+        
+        account["positions"] = update_positions_prices(account["positions"], price_data)
+        total_value, total_pl = calculate_account_value(account["positions"], account["cash_balance"])
+        account["total_value"] = total_value
+        account["total_pl"] = total_pl
+        account["total_pl_percent"] = (total_pl / INITIAL_CAPITAL) * 100
+        account["buying_power"] = account["cash_balance"]
+    
+    return account
+
+@api_router.get("/paper-trading/watchlist")
+async def get_paper_watchlist():
+    """Get the 50-item watchlist: top 5 from each of 10 hedge funds"""
+    watchlist = []
+    position = 1
+    
+    for fund in TOP_10_HEDGE_FUNDS:
+        top_5 = fund["top_holdings"][:5]
+        for holding in top_5:
+            watchlist.append({
+                "position": position,
+                "symbol": holding["symbol"],
+                "name": holding["name"],
+                "hedge_fund": fund["fund_name"],
+                "weight": holding["percent"],
+                "current_price": 0,
+                "change": holding["change"],
+                "value": holding["value"]
+            })
+            position += 1
+    
+    for item in watchlist:
+        try:
+            ticker = yf.Ticker(item["symbol"])
+            hist = ticker.history(period="1d")
+            if not hist.empty:
+                item["current_price"] = float(hist['Close'].iloc[-1])
+        except:
+            item["current_price"] = 0
+    
+    return watchlist
+
+class PlaceOrderRequest(BaseModel):
+    symbol: str
+    name: str
+    order_type: str
+    side: str
+    quantity: int
+    price: Optional[float] = None
+    hedge_fund: str
+
+@api_router.post("/paper-trading/order")
+async def place_order(order_req: PlaceOrderRequest, user: dict = Depends(verify_token)):
+    """Place a paper trading order (Market or Limit)"""
+    user_id = user["email"]
+    
+    account = await db.paper_accounts.find_one({"user_id": user_id}, {"_id": 0})
+    if not account:
+        account = create_default_account(user_id)
+        await db.paper_accounts.insert_one(account)
+    
+    order = {
+        "order_id": str(uuid4()),
+        "symbol": order_req.symbol,
+        "name": order_req.name,
+        "order_type": order_req.order_type,
+        "side": order_req.side,
+        "quantity": order_req.quantity,
+        "price": order_req.price,
+        "status": "PENDING",
+        "filled_price": None,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "hedge_fund": order_req.hedge_fund
+    }
+    
+    try:
+        ticker = yf.Ticker(order_req.symbol)
+        hist = ticker.history(period="1d")
+        if hist.empty:
+            raise HTTPException(status_code=400, detail="Unable to fetch current price")
+        current_price = float(hist['Close'].iloc[-1])
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error fetching price: {str(e)}")
+    
+    if order_req.order_type == "MARKET":
+        try:
+            account = execute_market_order(account, order, current_price)
+            await db.paper_accounts.update_one({"user_id": user_id}, {"$set": account})
+            return {"status": "success", "message": "Market order executed", "order": order}
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+    
+    elif order_req.order_type == "LIMIT":
+        if order_req.side == "BUY" and current_price <= order_req.price:
+            account = execute_market_order(account, order, current_price)
+            await db.paper_accounts.update_one({"user_id": user_id}, {"$set": account})
+            return {"status": "success", "message": "Limit order filled immediately", "order": order}
+        elif order_req.side == "SELL" and current_price >= order_req.price:
+            account = execute_market_order(account, order, current_price)
+            await db.paper_accounts.update_one({"user_id": user_id}, {"$set": account})
+            return {"status": "success", "message": "Limit order filled immediately", "order": order}
+        else:
+            order["status"] = "PENDING"
+            account["order_history"].append(order)
+            await db.paper_accounts.update_one({"user_id": user_id}, {"$set": account})
+            return {"status": "pending", "message": "Limit order placed, waiting for price", "order": order}
+
+@api_router.post("/paper-trading/reset")
+async def reset_paper_account(user: dict = Depends(verify_token)):
+    """Reset paper trading account back to $100M"""
+    user_id = user["email"]
+    
+    new_account = create_default_account(user_id)
+    
+    await db.paper_accounts.update_one(
+        {"user_id": user_id},
+        {"$set": new_account},
+        upsert=True
+    )
+    
+    return {"status": "success", "message": "Account reset to $100,000,000", "account": new_account}
+
 # Global Indices / Heat Map Endpoints
 @api_router.get("/market/indices")
 async def get_global_indices():
@@ -1301,3 +1452,5 @@ logger = logging.getLogger(__name__)
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
+
+
