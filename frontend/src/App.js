@@ -1206,7 +1206,22 @@ const PaperTradingPage = ({ viewMode }) => {
       // Reset form
       setOrderForm({ orderType: 'MARKET', side: 'BUY', quantity: 100, limitPrice: '' });
     } catch (e) {
-      setMessage({ type: 'error', text: e.response?.data?.detail || 'Order failed' });
+      // Handle error - ensure it's always a string
+      let errorMsg = 'Order failed';
+      if (e.response?.data?.detail) {
+        const detail = e.response.data.detail;
+        // If detail is an array (validation errors), extract message
+        if (Array.isArray(detail)) {
+          errorMsg = detail.map(err => err.msg || JSON.stringify(err)).join(', ');
+        } else if (typeof detail === 'string') {
+          errorMsg = detail;
+        } else if (typeof detail === 'object') {
+          errorMsg = detail.msg || JSON.stringify(detail);
+        }
+      } else if (e.message) {
+        errorMsg = e.message;
+      }
+      setMessage({ type: 'error', text: errorMsg });
     } finally {
       setPlacing(false);
     }

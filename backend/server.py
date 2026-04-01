@@ -1222,7 +1222,7 @@ Keep the analysis comprehensive but concise (under 600 words). Use clear section
 # ============== PAPER TRADING ENDPOINTS ==============
 
 @api_router.get("/paper-trading/account")
-async def get_paper_account(user: dict = Depends(verify_token)):
+async def get_paper_account(user: dict = Depends(verify_token_dep)):
     """Get or create user's paper trading account"""
     user_id = user["email"]
     
@@ -1295,7 +1295,7 @@ class PlaceOrderRequest(BaseModel):
     hedge_fund: str
 
 @api_router.post("/paper-trading/order")
-async def place_order(order_req: PlaceOrderRequest, user: dict = Depends(verify_token)):
+async def place_order(order_req: PlaceOrderRequest, user: dict = Depends(verify_token_dep)):
     """Place a paper trading order (Market or Limit)"""
     user_id = user["email"]
     
@@ -1351,7 +1351,7 @@ async def place_order(order_req: PlaceOrderRequest, user: dict = Depends(verify_
             return {"status": "pending", "message": "Limit order placed, waiting for price", "order": order}
 
 @api_router.post("/paper-trading/reset")
-async def reset_paper_account(user: dict = Depends(verify_token)):
+async def reset_paper_account(user: dict = Depends(verify_token_dep)):
     """Reset paper trading account back to $100M"""
     user_id = user["email"]
     
@@ -1504,7 +1504,7 @@ async def wellington_upload_file(file: bytes = File(...), filename: str = Form(.
         return {"error": str(e)}
 
 @api_router.post("/wellington/analyze")
-async def wellington_analyze_watchlist(roi_target: float = 50.0, user: dict = Depends(verify_token)):
+async def wellington_analyze_watchlist(roi_target: float = 50.0, user: dict = Depends(verify_token_dep)):
     """Have Wellington AI analyze the watchlist with ROI target"""
     try:
         api_key = os.environ.get('EMERGENT_LLM_KEY')
@@ -1549,7 +1549,7 @@ async def wellington_analyze_watchlist(roi_target: float = 50.0, user: dict = De
         return {"error": str(e)}
 
 @api_router.post("/wellington/auto-trade")
-async def wellington_auto_trade(roi_target: float = 50.0, user: dict = Depends(verify_token)):
+async def wellington_auto_trade(roi_target: float = 50.0, user: dict = Depends(verify_token_dep)):
     """Execute autonomous trading with ROI target"""
     try:
         api_key = os.environ.get('EMERGENT_LLM_KEY')
