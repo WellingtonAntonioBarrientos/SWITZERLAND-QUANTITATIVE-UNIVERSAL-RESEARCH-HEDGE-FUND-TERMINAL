@@ -102,97 +102,73 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Build a comprehensive quant financial application with landing page for SQH-Wellington's Terminal"
-
-frontend:
-  - task: "Landing Page Implementation"
-    implemented: true
-    working: true
-    file: "frontend/src/App.js (lines 186-433)"
-    stuck_count: 0
-    priority: "high"
-    needs_retesting: false
-    status_history:
-        - working: true
-          agent: "main"
-          comment: "Implemented landing page with hero section, stats, features, strategies, CTA, and footer. Routing configured: unauthenticated users see landing page at '/', authenticated users redirected to '/dashboard'. Login at '/login' works correctly. Tested manually with screenshots."
-
-  - task: "Authentication Flow with Landing Page"
-    implemented: true
-    working: true
-    file: "frontend/src/App.js (lines 2955-2976)"
-    stuck_count: 0
-    priority: "high"
-    needs_retesting: false
-    status_history:
-        - working: true
-          agent: "main"
-          comment: "Updated routing logic: unauthenticated users see LandingPage at '/' and LoginPage at '/login'. Authenticated users access dashboard. Root path redirects authenticated users to '/dashboard'. Logout returns to landing page. All flows tested and working."
-
-  - task: "Wellington Mode UI Theme Consistency"
-    implemented: true
-    working: "partial"
-    file: "frontend/src/index.css (wellington-mode styles)"
-    stuck_count: 0
-    priority: "low"
-    needs_retesting: false
-    status_history:
-        - working: "partial"
-          agent: "main"
-          comment: "Wellington mode class is applied correctly to app container, and sidebar/view mode button display the orange theme. However, most page content uses inline Tailwind classes (e.g., bg-[#0a0a0a], border-[#27272a]) that override the CSS file's Wellington theme colors. A comprehensive fix requires either: 1) Adding !important to all Wellington CSS rules, or 2) Refactoring all components to use conditional className based on viewMode prop. This is best done during the App.js refactoring task. Issue is cosmetic and non-blocking."
-
-  - task: "Password Change UI Component"
-    implemented: true
-    working: true
-    file: "frontend/src/App.js (lines 186-330, PasswordChangeModal component)"
-    stuck_count: 0
-    priority: "medium"
-    needs_retesting: false
-    status_history:
-        - working: true
-          agent: "main"
-          comment: "Implemented password change modal with validation (8+ chars, password match), error/success messages, and auto-close on success. Integrated into sidebar with 'Change Password' button. Complete flow tested: validation errors, successful password change, login with new password, and password revert. All working correctly."
+user_problem_statement: "Build a comprehensive quant financial application with landing page for SQH-Wellington's Terminal. User requested 3 tasks: 1) 13F SEC Filings with Top 10 Hedge Funds showing all 50 holdings each. 2) Quant Dashboard watchlist with top 5 holdings of Top 10 Hedge Funds with real-time charts. 3) System-wide auto-refresh implementation."
 
 backend:
-  - task: "Auth Verification Endpoint"
+  - task: "13F SEC Filings - Top 10 Hedge Funds Data (50 Holdings Each)"
     implemented: true
     working: true
-    file: "backend/server.py (line 97-99)"
+    file: "backend/hedge_funds_data.py, backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Created comprehensive hedge_funds_data.py with 50 holdings per fund for all 10 hedge funds. Updated server.py to import and serve this data via /api/sec/13f endpoints. Added new endpoint /api/sec/13f/analyze-all for comparative analysis of all 10 funds. Removed old MOCK_13F_FILINGS data. Backend tested with curl - returns 10 funds with 50 holdings each."
+
+frontend:
+  - task: "13F SEC Filings - Display All 50 Holdings"
+    implemented: true
+    working: true
+    file: "frontend/src/App.js (SECFilingsPage component)"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Updated SECFilingsPage to display all 50 holdings in a scrollable table (max-height 500px) with columns: #, Symbol, Name, Value, Shares, Weight, Change. Added 'ANALYZE ALL 10 FUNDS WITH AI' button at top that calls /api/sec/13f/analyze-all endpoint for comparative analysis. Individual fund AI analysis button remains for per-fund insights. Screenshot verification shows table correctly displays all 50 holdings with scrolling."
+
+  - task: "Quant Dashboard - Assets/Equities 2 Watchlist Section"
+    implemented: true
+    working: true
+    file: "frontend/src/App.js (HedgeFundWatchlist component)"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Created new HedgeFundWatchlist component displaying top 5 holdings from each of the Top 10 Hedge Funds. Each holding shows: Symbol, Name, Real-time Price (from yfinance), Price Change %, Mini Area Chart (last 30 data points), Weight %, and Value. Component fetches all unique symbols from top 5 holdings and gets real-time price data. Auto-refreshes every 60 seconds. Integrated into Quant Dashboard as 'Assets / Equities 2' section. Screenshot shows 10 fund cards in 2-column grid with real-time mini charts."
+
+  - task: "System-wide Auto-Refresh Implementation"
+    implemented: true
+    working: true
+    file: "frontend/src/App.js (Multiple components)"
     stuck_count: 0
     priority: "high"
     needs_retesting: false
     status_history:
         - working: true
           agent: "main"
-          comment: "Endpoint exists and working correctly. Used by frontend to verify JWT tokens."
-
-  - task: "Password Change Endpoint"
-    implemented: true
-    working: true
-    file: "backend/server.py (lines 101-109)"
-    stuck_count: 0
-    priority: "medium"
-    needs_retesting: false
-    status_history:
-        - working: true
-          agent: "main"
-          comment: "Backend endpoint '/api/auth/change-password' working correctly. Validates current password, updates hash, returns success. Tested with frontend integration."
+          comment: "Added auto-refresh intervals to all pages/components: Quant Dashboard (30s - existing), Global Heatmap (30s - existing), System Health (10s - existing), Macro Regime (60s - added), Strategies Page (120s - added), World Intel (180s - added), Automation Hub (30s - added), Research Queue (60s - added), Hedge Fund Watchlist (60s - added). All components now automatically refresh data without manual button clicks. Manual refresh buttons remain available for user-triggered updates."
 
 metadata:
   created_by: "main_agent"
-  version: "1.0"
-  test_sequence: 1
+  version: "2.0"
+  test_sequence: 2
   run_ui: true
 
 test_plan:
   current_focus:
-    - "Landing Page Implementation"
-    - "Authentication Flow with Landing Page"
-    - "Password Change UI Component"
+    - "13F SEC Filings - All 50 Holdings Display"
+    - "Quant Dashboard - Hedge Fund Watchlist"
+    - "System-wide Auto-Refresh"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
 
 agent_communication:
     - agent: "main"
-      message: "Completed: 1) Landing page with full routing (unauthenticated→landing, authenticated→dashboard, logout→landing). 2) Password change feature with modal UI, validation, backend integration. 3) Documented Wellington mode partial styling issue (requires refactoring, P2 priority). All features tested with screenshots. Ready for comprehensive testing via testing subagent before moving to refactoring task."
+      message: "Completed all 3 user-requested tasks: (1) 13F SEC Filings now shows all 50 holdings per fund for Top 10 Hedge Funds with AI analysis button for comparative analysis of all funds. Backend serves data from hedge_funds_data.py with 50 holdings each. (2) Quant Dashboard has new 'Assets / Equities 2' section showing top 5 holdings from each of the Top 10 Hedge Funds with real-time price charts using yfinance data, auto-refreshing every 60s. (3) System-wide auto-refresh implemented across all pages with appropriate intervals (10s-180s based on data volatility). Ready for comprehensive testing."

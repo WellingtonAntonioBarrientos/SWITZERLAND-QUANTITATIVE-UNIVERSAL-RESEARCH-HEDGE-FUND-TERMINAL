@@ -17,6 +17,7 @@ import jwt
 import yfinance as yf
 import pandas as pd
 from openclaw_service import OpenclawTradingAnalyzer
+from hedge_funds_data import TOP_10_HEDGE_FUNDS
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -275,179 +276,7 @@ class AutomationModule(BaseModel):
     last_run: Optional[str]
     alerts: List[str]
 
-# Mock 13F SEC Filings Data
-MOCK_13F_FILINGS = [
-    SECFiling13F(
-        id="bridgewater",
-        fund_name="Bridgewater Associates",
-        cik="0001350694",
-        filing_date="2025-11-14",
-        quarter="Q3 2025",
-        aum=124500000000,
-        top_holdings=[
-            {"symbol": "SPY", "shares": 22500000, "value": 10125000000, "percent": 8.1},
-            {"symbol": "IVV", "shares": 18200000, "value": 8190000000, "percent": 6.6},
-            {"symbol": "VWO", "shares": 45000000, "value": 1890000000, "percent": 1.5},
-            {"symbol": "GLD", "shares": 8500000, "value": 1615000000, "percent": 1.3},
-            {"symbol": "IEMG", "shares": 28000000, "value": 1484000000, "percent": 1.2},
-        ],
-        sector_allocation={"Technology": 22.5, "Healthcare": 18.2, "Financials": 15.8, "Consumer": 12.4, "Energy": 8.9, "Other": 22.2},
-        quarterly_change=3.2
-    ),
-    SECFiling13F(
-        id="renaissance",
-        fund_name="Renaissance Technologies",
-        cik="0001037389",
-        filing_date="2025-11-14",
-        quarter="Q3 2025",
-        aum=98200000000,
-        top_holdings=[
-            {"symbol": "NVDA", "shares": 4500000, "value": 5850000000, "percent": 6.0},
-            {"symbol": "META", "shares": 3200000, "value": 1920000000, "percent": 2.0},
-            {"symbol": "NOVO", "shares": 15000000, "value": 1650000000, "percent": 1.7},
-            {"symbol": "MSFT", "shares": 3800000, "value": 1596000000, "percent": 1.6},
-            {"symbol": "AMZN", "shares": 7500000, "value": 1425000000, "percent": 1.5},
-        ],
-        sector_allocation={"Technology": 35.2, "Healthcare": 22.1, "Financials": 12.5, "Consumer": 10.8, "Industrials": 9.2, "Other": 10.2},
-        quarterly_change=5.8
-    ),
-    SECFiling13F(
-        id="citadel",
-        fund_name="Citadel Advisors",
-        cik="0001423053",
-        filing_date="2025-11-14",
-        quarter="Q3 2025",
-        aum=87600000000,
-        top_holdings=[
-            {"symbol": "AAPL", "shares": 12000000, "value": 2640000000, "percent": 3.0},
-            {"symbol": "TSLA", "shares": 8500000, "value": 2125000000, "percent": 2.4},
-            {"symbol": "GOOGL", "shares": 11000000, "value": 1870000000, "percent": 2.1},
-            {"symbol": "AMZN", "shares": 9200000, "value": 1748000000, "percent": 2.0},
-            {"symbol": "SPY", "shares": 3500000, "value": 1575000000, "percent": 1.8},
-        ],
-        sector_allocation={"Technology": 28.5, "Healthcare": 15.2, "Financials": 18.8, "Consumer": 14.2, "Energy": 10.5, "Other": 12.8},
-        quarterly_change=-1.2
-    ),
-    SECFiling13F(
-        id="twosigma",
-        fund_name="Two Sigma Investments",
-        cik="0001179392",
-        filing_date="2025-11-14",
-        quarter="Q3 2025",
-        aum=72400000000,
-        top_holdings=[
-            {"symbol": "SPY", "shares": 8500000, "value": 3825000000, "percent": 5.3},
-            {"symbol": "QQQ", "shares": 6200000, "value": 2790000000, "percent": 3.9},
-            {"symbol": "IWM", "shares": 12000000, "value": 2400000000, "percent": 3.3},
-            {"symbol": "NVDA", "shares": 1800000, "value": 2340000000, "percent": 3.2},
-            {"symbol": "MSFT", "shares": 4500000, "value": 1890000000, "percent": 2.6},
-        ],
-        sector_allocation={"Technology": 32.1, "Healthcare": 14.5, "Financials": 16.2, "Consumer": 11.8, "Industrials": 12.2, "Other": 13.2},
-        quarterly_change=2.4
-    ),
-    SECFiling13F(
-        id="millennium",
-        fund_name="Millennium Management",
-        cik="0001273087",
-        filing_date="2025-11-14",
-        quarter="Q3 2025",
-        aum=65800000000,
-        top_holdings=[
-            {"symbol": "AAPL", "shares": 9500000, "value": 2090000000, "percent": 3.2},
-            {"symbol": "MSFT", "shares": 4200000, "value": 1764000000, "percent": 2.7},
-            {"symbol": "AMZN", "shares": 8000000, "value": 1520000000, "percent": 2.3},
-            {"symbol": "META", "shares": 2400000, "value": 1440000000, "percent": 2.2},
-            {"symbol": "GOOGL", "shares": 7500000, "value": 1275000000, "percent": 1.9},
-        ],
-        sector_allocation={"Technology": 30.5, "Healthcare": 18.8, "Financials": 14.2, "Consumer": 13.5, "Energy": 9.8, "Other": 13.2},
-        quarterly_change=1.8
-    ),
-    SECFiling13F(
-        id="point72",
-        fund_name="Point72 Asset Management",
-        cik="0001603466",
-        filing_date="2025-11-14",
-        quarter="Q3 2025",
-        aum=45200000000,
-        top_holdings=[
-            {"symbol": "NVDA", "shares": 2200000, "value": 2860000000, "percent": 6.3},
-            {"symbol": "MSFT", "shares": 3500000, "value": 1470000000, "percent": 3.3},
-            {"symbol": "AAPL", "shares": 6000000, "value": 1320000000, "percent": 2.9},
-            {"symbol": "GOOGL", "shares": 6500000, "value": 1105000000, "percent": 2.4},
-            {"symbol": "META", "shares": 1600000, "value": 960000000, "percent": 2.1},
-        ],
-        sector_allocation={"Technology": 38.2, "Healthcare": 20.5, "Financials": 12.8, "Consumer": 10.2, "Industrials": 8.5, "Other": 9.8},
-        quarterly_change=4.5
-    ),
-    SECFiling13F(
-        id="deshaw",
-        fund_name="D.E. Shaw & Co.",
-        cik="0001009207",
-        filing_date="2025-11-14",
-        quarter="Q3 2025",
-        aum=52100000000,
-        top_holdings=[
-            {"symbol": "AAPL", "shares": 7800000, "value": 1716000000, "percent": 3.3},
-            {"symbol": "NVDA", "shares": 1200000, "value": 1560000000, "percent": 3.0},
-            {"symbol": "GOOGL", "shares": 8000000, "value": 1360000000, "percent": 2.6},
-            {"symbol": "AMZN", "shares": 6500000, "value": 1235000000, "percent": 2.4},
-            {"symbol": "TSLA", "shares": 4500000, "value": 1125000000, "percent": 2.2},
-        ],
-        sector_allocation={"Technology": 34.8, "Healthcare": 16.2, "Financials": 15.5, "Consumer": 12.8, "Energy": 8.2, "Other": 12.5},
-        quarterly_change=3.1
-    ),
-    SECFiling13F(
-        id="baupost",
-        fund_name="Baupost Group",
-        cik="0001061768",
-        filing_date="2025-11-14",
-        quarter="Q3 2025",
-        aum=28500000000,
-        top_holdings=[
-            {"symbol": "LNG", "shares": 18000000, "value": 2700000000, "percent": 9.5},
-            {"symbol": "VICI", "shares": 42000000, "value": 1260000000, "percent": 4.4},
-            {"symbol": "META", "shares": 1800000, "value": 1080000000, "percent": 3.8},
-            {"symbol": "FWONK", "shares": 12000000, "value": 960000000, "percent": 3.4},
-            {"symbol": "EBAY", "shares": 15000000, "value": 825000000, "percent": 2.9},
-        ],
-        sector_allocation={"Energy": 22.5, "Real Estate": 18.2, "Technology": 15.8, "Consumer": 14.2, "Healthcare": 12.5, "Other": 16.8},
-        quarterly_change=-0.8
-    ),
-    SECFiling13F(
-        id="elliott",
-        fund_name="Elliott Investment Management",
-        cik="0001048445",
-        filing_date="2025-11-14",
-        quarter="Q3 2025",
-        aum=38900000000,
-        top_holdings=[
-            {"symbol": "CRM", "shares": 5500000, "value": 1650000000, "percent": 4.2},
-            {"symbol": "TXN", "shares": 7200000, "value": 1440000000, "percent": 3.7},
-            {"symbol": "DHR", "shares": 5000000, "value": 1250000000, "percent": 3.2},
-            {"symbol": "PINS", "shares": 28000000, "value": 1120000000, "percent": 2.9},
-            {"symbol": "SWK", "shares": 10000000, "value": 950000000, "percent": 2.4},
-        ],
-        sector_allocation={"Technology": 28.5, "Industrials": 22.2, "Healthcare": 18.5, "Consumer": 12.8, "Financials": 8.5, "Other": 9.5},
-        quarterly_change=2.2
-    ),
-    SECFiling13F(
-        id="viking",
-        fund_name="Viking Global Investors",
-        cik="0001103804",
-        filing_date="2025-11-14",
-        quarter="Q3 2025",
-        aum=42600000000,
-        top_holdings=[
-            {"symbol": "UBER", "shares": 25000000, "value": 2000000000, "percent": 4.7},
-            {"symbol": "META", "shares": 3000000, "value": 1800000000, "percent": 4.2},
-            {"symbol": "MSFT", "shares": 4000000, "value": 1680000000, "percent": 3.9},
-            {"symbol": "V", "shares": 5500000, "value": 1540000000, "percent": 3.6},
-            {"symbol": "MA", "shares": 2800000, "value": 1400000000, "percent": 3.3},
-        ],
-        sector_allocation={"Technology": 32.5, "Financials": 18.8, "Healthcare": 16.2, "Consumer": 14.5, "Industrials": 8.8, "Other": 9.2},
-        quarterly_change=3.8
-    )
-]
+# 13F SEC Filing data is now imported from hedge_funds_data.py
 
 # Mock Global Indices Data
 def generate_global_indices():
@@ -1245,20 +1074,23 @@ async def optimize_composite_portfolio():
 # 13F SEC Filings Endpoints
 @api_router.get("/sec/13f")
 async def get_13f_filings():
-    return [f.model_dump() for f in MOCK_13F_FILINGS]
+    """Get all 10 hedge fund 13F filings with 50 holdings each"""
+    return TOP_10_HEDGE_FUNDS
 
 @api_router.get("/sec/13f/{fund_id}")
 async def get_13f_filing(fund_id: str):
-    for filing in MOCK_13F_FILINGS:
-        if filing.id == fund_id:
-            return filing.model_dump()
+    """Get detailed 13F filing for a specific hedge fund"""
+    for filing in TOP_10_HEDGE_FUNDS:
+        if filing["id"] == fund_id:
+            return filing
     raise HTTPException(status_code=404, detail="Filing not found")
 
 @api_router.post("/sec/13f/{fund_id}/analyze")
 async def analyze_13f_filing(fund_id: str):
+    """Analyze a single fund's 13F filing"""
     filing = None
-    for f in MOCK_13F_FILINGS:
-        if f.id == fund_id:
+    for f in TOP_10_HEDGE_FUNDS:
+        if f["id"] == fund_id:
             filing = f
             break
     
@@ -1276,17 +1108,18 @@ async def analyze_13f_filing(fund_id: str):
             system_message="You are a senior hedge fund analyst specializing in 13F SEC filings analysis. Provide concise, actionable insights."
         ).with_model("anthropic", "claude-sonnet-4-5-20250929")
         
-        holdings_str = "\n".join([f"- {h['symbol']}: ${h['value']/1e9:.2f}B ({h['percent']}%)" for h in filing.top_holdings])
-        sector_str = "\n".join([f"- {k}: {v}%" for k, v in filing.sector_allocation.items()])
+        # Use top 10 holdings for analysis (not all 50 to keep prompt manageable)
+        holdings_str = "\n".join([f"- {h['symbol']}: ${h['value']/1e9:.2f}B ({h['percent']}%)" for h in filing["top_holdings"][:10]])
+        sector_str = "\n".join([f"- {k}: {v}%" for k, v in filing["sector_allocation"].items()])
         
-        prompt = f"""Analyze this 13F SEC filing for {filing.fund_name}:
+        prompt = f"""Analyze this 13F SEC filing for {filing["fund_name"]}:
 
-Fund: {filing.fund_name}
-AUM: ${filing.aum/1e9:.1f} Billion
-Quarter: {filing.quarter}
-Quarterly Change: {filing.quarterly_change}%
+Fund: {filing["fund_name"]}
+AUM: ${filing["aum"]/1e9:.1f} Billion
+Quarter: {filing["quarter"]}
+Quarterly Change: {filing["quarterly_change"]}%
 
-Top Holdings:
+Top 10 Holdings:
 {holdings_str}
 
 Sector Allocation:
@@ -1297,13 +1130,74 @@ Provide:
 2. Key sector bets and their rationale
 3. Notable position changes to watch
 4. Potential signals for retail investors
-5. Risk factors in their portfolio"""
+5. Risk factors in their portfolio
+
+Keep the analysis concise and under 300 words."""
         
         response = await chat.send_message(UserMessage(text=prompt))
-        return {"fund_id": fund_id, "fund_name": filing.fund_name, "analysis": response}
+        
+        return {"analysis": response}
+        
     except Exception as e:
-        logging.error(f"13F analysis error: {e}")
-        return {"fund_id": fund_id, "error": str(e)}
+        logging.error(f"Error analyzing 13F: {e}")
+        return {"error": str(e)}
+
+@api_router.post("/sec/13f/analyze-all")
+async def analyze_all_13f_filings():
+    """Analyze all 10 hedge fund 13F filings together - comparative analysis"""
+    try:
+        api_key = os.environ.get('EMERGENT_LLM_KEY')
+        if not api_key:
+            return {"error": "AI key not configured"}
+        
+        chat = LlmChat(
+            api_key=api_key,
+            session_id="13f-analysis-all-funds",
+            system_message="You are a senior hedge fund analyst specializing in comparative 13F SEC filings analysis across multiple top hedge funds. Identify trends, consensus bets, and divergences."
+        ).with_model("anthropic", "claude-sonnet-4-5-20250929")
+        
+        # Build comprehensive overview of all 10 funds
+        funds_overview = []
+        for fund in TOP_10_HEDGE_FUNDS:
+            top_5_holdings = "\n  ".join([f"{h['symbol']}: {h['percent']}%" for h in fund["top_holdings"][:5]])
+            funds_overview.append(f"""
+**{fund["fund_name"]}** (AUM: ${fund["aum"]/1e9:.1f}B, QoQ: {fund["quarterly_change"]}%)
+Top 5 Holdings:
+  {top_5_holdings}
+Sector Focus: {', '.join([f"{k}: {v}%" for k, v in sorted(fund["sector_allocation"].items(), key=lambda x: x[1], reverse=True)[:3]])}
+""")
+        
+        funds_summary = "\n".join(funds_overview)
+        
+        prompt = f"""Analyze these Top 10 Hedge Funds' Q3 2025 13F SEC Filings:
+
+{funds_summary}
+
+Provide a comprehensive comparative analysis covering:
+
+1. **Consensus Bets**: Which stocks/sectors are multiple top funds piling into? What does this signal?
+
+2. **Divergent Strategies**: Which funds are zigging while others zag? Highlight contrarian positions.
+
+3. **Sector Trends**: What are the dominant sector allocations? Is there a shift from previous quarters?
+
+4. **Tech vs Traditional**: How are funds positioned between growth tech and value/defensive sectors?
+
+5. **Risk Assessment**: Which funds have concentrated vs diversified portfolios? What are the tail risks?
+
+6. **Retail Investor Takeaways**: What actionable insights can individual investors glean from these institutional moves?
+
+7. **Market Outlook Signals**: What do these collective positions suggest about institutional sentiment for 2026?
+
+Keep the analysis comprehensive but concise (under 600 words). Use clear sections and bullet points where appropriate."""
+        
+        response = await chat.send_message(UserMessage(text=prompt))
+        
+        return {"analysis": response, "funds_analyzed": len(TOP_10_HEDGE_FUNDS)}
+        
+    except Exception as e:
+        logging.error(f"Error analyzing all 13F filings: {e}")
+        return {"error": str(e)}
 
 # Global Indices / Heat Map Endpoints
 @api_router.get("/market/indices")
