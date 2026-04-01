@@ -605,6 +605,7 @@ const Sidebar = ({ collapsed, setCollapsed, viewMode, setViewMode, userEmail, on
   
   const automationItems = [
     { path: "/automation-hub", icon: Bot, label: "Automation Hub" },
+    { path: "/funds-paper-trading", icon: DollarSign, label: "Funds Paper Trading 1.0" },
     { path: "/automation-v1", icon: Zap, label: "Automation V1" },
     { path: "/automation-v2", icon: Code2, label: "Automation V2" },
   ];
@@ -4176,6 +4177,7 @@ function App() {
             <Route path="/health" element={<SystemHealth viewMode={viewMode} />} />
             <Route path="/profile" element={<ProfilePage userEmail={userEmail} />} />
             <Route path="/automation-hub" element={<AutomationHubPage viewMode={viewMode} />} />
+            <Route path="/funds-paper-trading" element={<PaperTradingPage viewMode={viewMode} />} />
             <Route path="/automation-v1" element={<AutomationV1 viewMode={viewMode} />} />
             <Route path="/automation-v2" element={<AutomationV2 viewMode={viewMode} />} />
           </Routes>
