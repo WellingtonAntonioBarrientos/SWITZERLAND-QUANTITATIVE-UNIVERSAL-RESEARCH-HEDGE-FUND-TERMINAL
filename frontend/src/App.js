@@ -1277,6 +1277,21 @@ const PaperTradingPage = ({ viewMode }) => {
           include_context: true
         });
         response = res.data.response;
+        
+        // Add advanced mode metadata
+        const modeUsed = res.data.mode_used || 'standard';
+        const thinking = res.data.thinking || '';
+        const code = res.data.code || '';
+        
+        setWellingtonChat(prev => [...prev, { 
+          role: 'assistant', 
+          content: response,
+          mode: modeUsed,
+          thinking: thinking,
+          code: code
+        }]);
+        setWellingtonThinking(false);
+        return;
       }
       
       setWellingtonChat(prev => [...prev, { 
@@ -1601,10 +1616,50 @@ const PaperTradingPage = ({ viewMode }) => {
                         ? 'bg-loss/20 text-loss'
                         : 'bg-[#00e676]/10 mr-12'
                     }`}>
-                      <div className="font-semibold mb-1">
-                        {msg.role === 'user' ? 'You' : msg.role === 'error' ? 'Error' : 'Wellington AI'}
+                      <div className="font-semibold mb-1 flex items-center gap-2 justify-between">
+                        <span>{msg.role === 'user' ? 'You' : msg.role === 'error' ? 'Error' : 'Wellington AI'}</span>
+                        {msg.mode && msg.mode !== 'standard' && (
+                          <span className={`px-2 py-0.5 text-[9px] font-mono rounded ${
+                            msg.mode === 'code_generation' ? 'bg-[#3b82f6]/30 text-[#3b82f6]' :
+                            msg.mode === 'deep_analysis' ? 'bg-[#8b5cf6]/30 text-[#8b5cf6]' :
+                            msg.mode === 'research' ? 'bg-[#10b981]/30 text-[#10b981]' :
+                            msg.mode === 'strategy_builder' ? 'bg-[#f59e0b]/30 text-[#f59e0b]' :
+                            msg.mode === 'multi_agent_debate' ? 'bg-[#ec4899]/30 text-[#ec4899]' :
+                            'bg-[#71717a]/30 text-[#71717a]'
+                          }`}>
+                            {msg.mode.replace(/_/g, ' ').toUpperCase()}
+                          </span>
+                        )}
                       </div>
+                      
+                      {/* Thinking Process */}
+                      {msg.thinking && (
+                        <div className="mb-2 p-2 bg-[#000]/50 border border-[#27272a]/50 rounded text-[10px]">
+                          <div className="text-[#71717a] uppercase mb-1 flex items-center gap-1">
+                            <Brain size={10} />
+                            Reasoning Process
+                          </div>
+                          <div className="text-[#a1a1aa] whitespace-pre-wrap font-mono">
+                            {msg.thinking}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Main Content */}
                       <div className="whitespace-pre-wrap">{msg.content}</div>
+                      
+                      {/* Generated Code */}
+                      {msg.code && (
+                        <div className="mt-2 p-2 bg-[#000]/70 border border-[#3b82f6]/30 rounded">
+                          <div className="text-[#3b82f6] uppercase mb-1 text-[9px] flex items-center gap-1">
+                            <Code2 size={10} />
+                            Generated Code
+                          </div>
+                          <pre className="text-[10px] overflow-x-auto font-mono text-[#ededed]">
+                            <code>{msg.code}</code>
+                          </pre>
+                        </div>
+                      )}
                     </div>
                   ))
                 )}

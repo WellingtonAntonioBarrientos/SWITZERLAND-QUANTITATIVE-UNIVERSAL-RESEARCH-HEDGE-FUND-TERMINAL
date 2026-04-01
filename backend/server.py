@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, File, Form
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, File, Form, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -24,6 +24,7 @@ from paper_trading import (
     update_positions_prices, calculate_account_value, INITIAL_CAPITAL
 )
 from wellington_ai import get_wellington_ai
+from wellington_orchestrator import get_wellington_orchestrator
 from uuid import uuid4
 
 ROOT_DIR = Path(__file__).parent
@@ -96,6 +97,18 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         raise HTTPException(status_code=401, detail="Invalid or expired token")
     
     return email
+
+# Dependency for endpoints that need user dict with email
+async def verify_token_dep(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
+    """Verify JWT token and return user dict"""
+    if not credentials:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    email = verify_token(credentials.credentials)
+    if not email or email != OWNER_EMAIL:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    
+    return {"email": email}
 
 # ============== AUTH ENDPOINTS ==============
 
@@ -1362,14 +1375,24 @@ class WellingtonChatRequest(BaseModel):
     url_content: Optional[str] = None
 
 @api_router.post("/wellington/chat")
-async def chat_with_wellington(request: WellingtonChatRequest, user: dict = Depends(verify_token)):
-    """Chat with Wellington AI with multimodal support"""
+async def chat_with_wellington(request: WellingtonChatRequest, user: dict = Depends(verify_token_dep)):
+    """
+    Chat with Wellington AI with multimodal support and smart auto-detection
+    
+    Wellington automatically detects query intent and uses the appropriate mode:
+    - Standard: Simple queries, general chat
+    - Deep Analysis: Complex reasoning with chain-of-thought
+    - Code Generation: Trading algorithm development
+    - Research: Market research and trends
+    - Strategy Builder: Interactive strategy creation
+    - Multi-Agent Debate: Multiple perspectives on a decision
+    """
     try:
         api_key = os.environ.get('EMERGENT_LLM_KEY')
         if not api_key:
             return {"error": "AI key not configured"}
         
-        wellington = get_wellington_ai(api_key)
+        orchestrator = get_wellington_orchestrator(api_key)
         
         # Get context if requested
         context = {}
@@ -1381,10 +1404,12 @@ async def chat_with_wellington(request: WellingtonChatRequest, user: dict = Depe
                     "account_value": account.get("total_value", 0),
                     "positions_count": len(account.get("positions", [])),
                     "success_rate": 0,
-                    "recent_insights": []
+                    "recent_insights": [],
+                    "symbols": ["SPY", "QQQ", "AAPL", "MSFT", "NVDA"]  # Available instruments
                 }
         
-        response = await wellington.chat_with_wellington(
+        # Use orchestrator for smart routing
+        result = await orchestrator.process_query(
             request.message, 
             context,
             image_data=request.image_data,
@@ -1392,7 +1417,15 @@ async def chat_with_wellington(request: WellingtonChatRequest, user: dict = Depe
             url_content=request.url_content
         )
         
-        return {"response": response, "timestamp": datetime.now(timezone.utc).isoformat()}
+        # Return enhanced response with mode information
+        return {
+            "response": result.get("response", ""),
+            "mode_used": result.get("mode_used", "standard"),
+            "thinking": result.get("thinking", ""),
+            "code": result.get("code", ""),
+            "metadata": result.get("metadata", {}),
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
     except Exception as e:
         logging.error(f"Wellington chat error: {e}")
         return {"error": str(e)}
