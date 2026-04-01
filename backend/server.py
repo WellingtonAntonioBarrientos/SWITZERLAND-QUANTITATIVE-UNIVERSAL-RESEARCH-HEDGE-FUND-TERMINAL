@@ -22,6 +22,7 @@ from paper_trading import (
     create_default_account, execute_market_order, 
     update_positions_prices, calculate_account_value, INITIAL_CAPITAL
 )
+from wellington_ai import get_wellington_ai
 from uuid import uuid4
 
 ROOT_DIR = Path(__file__).parent
@@ -1349,6 +1350,181 @@ async def reset_paper_account(user: dict = Depends(verify_token)):
     )
     
     return {"status": "success", "message": "Account reset to $100,000,000", "account": new_account}
+
+# ============== WELLINGTON AI ENDPOINTS ==============
+
+class WellingtonChatRequest(BaseModel):
+    message: str
+    include_context: bool = True
+
+@api_router.post("/wellington/chat")
+async def chat_with_wellington(request: WellingtonChatRequest, user: dict = Depends(verify_token)):
+    """Chat with Wellington AI"""
+    try:
+        api_key = os.environ.get('EMERGENT_LLM_KEY')
+        if not api_key:
+            return {"error": "AI key not configured"}
+        
+        wellington = get_wellington_ai(api_key)
+        
+        # Get context if requested
+        context = {}
+        if request.include_context:
+            user_id = user["email"]
+            account = await db.paper_accounts.find_one({"user_id": user_id}, {"_id": 0})
+            if account:
+                context = {
+                    "account_value": account.get("total_value", 0),
+                    "positions_count": len(account.get("positions", [])),
+                    "success_rate": 0,  # Will be calculated from trading history
+                    "recent_insights": []
+                }
+        
+        response = await wellington.chat_with_wellington(request.message, context)
+        
+        return {"response": response, "timestamp": datetime.now(timezone.utc).isoformat()}
+    except Exception as e:
+        logging.error(f"Wellington chat error: {e}")
+        return {"error": str(e)}
+
+@api_router.post("/wellington/analyze")
+async def wellington_analyze_watchlist(user: dict = Depends(verify_token)):
+    """Have Wellington AI analyze the watchlist and provide recommendations"""
+    try:
+        api_key = os.environ.get('EMERGENT_LLM_KEY')
+        if not api_key:
+            return {"error": "AI key not configured"}
+        
+        wellington = get_wellington_ai(api_key)
+        
+        # Get watchlist
+        watchlist = []
+        position = 1
+        for fund in TOP_10_HEDGE_FUNDS:
+            top_5 = fund["top_holdings"][:5]
+            for holding in top_5:
+                ticker = yf.Ticker(holding["symbol"])
+                hist = ticker.history(period="1d")
+                current_price = float(hist['Close'].iloc[-1]) if not hist.empty else 0
+                
+                watchlist.append({
+                    "position": position,
+                    "symbol": holding["symbol"],
+                    "name": holding["name"],
+                    "hedge_fund": fund["fund_name"],
+                    "weight": holding["percent"],
+                    "current_price": current_price,
+                    "change": holding["change"]
+                })
+                position += 1
+        
+        # Get account data
+        user_id = user["email"]
+        account = await db.paper_accounts.find_one({"user_id": user_id}, {"_id": 0})
+        if not account:
+            account = create_default_account(user_id)
+        
+        # Analyze
+        analysis = await wellington.analyze_watchlist(watchlist, account)
+        
+        return analysis
+    except Exception as e:
+        logging.error(f"Wellington analysis error: {e}")
+        return {"error": str(e)}
+
+@api_router.post("/wellington/auto-trade")
+async def wellington_auto_trade(user: dict = Depends(verify_token)):
+    """Execute autonomous trading with $500 allocation"""
+    try:
+        api_key = os.environ.get('EMERGENT_LLM_KEY')
+        if not api_key:
+            return {"error": "AI key not configured"}
+        
+        wellington = get_wellington_ai(api_key)
+        
+        # Get analysis first
+        user_id = user["email"]
+        account = await db.paper_accounts.find_one({"user_id": user_id}, {"_id": 0})
+        if not account:
+            account = create_default_account(user_id)
+            await db.paper_accounts.insert_one(account)
+        
+        # Get watchlist with prices
+        watchlist = []
+        for fund in TOP_10_HEDGE_FUNDS:
+            for holding in fund["top_holdings"][:5]:
+                ticker = yf.Ticker(holding["symbol"])
+                hist = ticker.history(period="1d")
+                current_price = float(hist['Close'].iloc[-1]) if not hist.empty else 0
+                
+                watchlist.append({
+                    "position": len(watchlist) + 1,
+                    "symbol": holding["symbol"],
+                    "name": holding["name"],
+                    "hedge_fund": fund["fund_name"],
+                    "current_price": current_price,
+                    "change": holding["change"]
+                })
+        
+        # Get AI recommendations
+        analysis = await wellington.analyze_watchlist(watchlist, account)
+        
+        if "error" in analysis or not analysis.get("recommendations"):
+            return {"error": "No recommendations generated", "analysis": analysis}
+        
+        # Execute top recommendation if confidence > 6
+        executed_trades = []
+        for rec in analysis["recommendations"][:3]:  # Top 3 recommendations
+            if rec.get("confidence", 0) >= 6:
+                # Find stock in watchlist
+                stock = next((s for s in watchlist if s["symbol"] == rec["symbol"]), None)
+                if stock and stock["current_price"] > 0:
+                    # Execute trade
+                    trade = await wellington.execute_autonomous_trade(rec, stock["current_price"])
+                    
+                    # Place order in paper trading
+                    order = {
+                        "order_id": str(uuid4()),
+                        "symbol": trade["symbol"],
+                        "name": stock["name"],
+                        "order_type": "MARKET",
+                        "side": trade["action"],
+                        "quantity": trade["quantity"],
+                        "price": None,
+                        "status": "PENDING",
+                        "filled_price": None,
+                        "timestamp": trade["timestamp"],
+                        "hedge_fund": stock["hedge_fund"],
+                        "wellington_ai": True,
+                        "confidence": trade["confidence"]
+                    }
+                    
+                    account = execute_market_order(account, order, stock["current_price"])
+                    executed_trades.append(trade)
+        
+        # Update account
+        await db.paper_accounts.update_one({"user_id": user_id}, {"$set": account})
+        
+        return {
+            "status": "success",
+            "trades_executed": len(executed_trades),
+            "trades": executed_trades,
+            "analysis": analysis
+        }
+        
+    except Exception as e:
+        logging.error(f"Wellington auto-trade error: {e}")
+        return {"error": str(e)}
+
+@api_router.get("/wellington/performance")
+async def wellington_get_performance():
+    """Get Wellington AI performance metrics"""
+    try:
+        api_key = os.environ.get('EMERGENT_LLM_KEY')
+        wellington = get_wellington_ai(api_key)
+        return wellington.get_performance_summary()
+    except Exception as e:
+        return {"error": str(e)}
 
 # Global Indices / Heat Map Endpoints
 @api_router.get("/market/indices")

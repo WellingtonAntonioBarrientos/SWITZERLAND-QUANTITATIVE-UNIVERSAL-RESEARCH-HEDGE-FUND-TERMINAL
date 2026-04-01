@@ -1137,6 +1137,14 @@ const PaperTradingPage = ({ viewMode }) => {
   });
   const [placing, setPlacing] = useState(false);
   const [message, setMessage] = useState(null);
+  
+  // Wellington AI states
+  const [wellingtonChat, setWellingtonChat] = useState([]);
+  const [wellingtonInput, setWellingtonInput] = useState('');
+  const [wellingtonThinking, setWellingtonThinking] = useState(false);
+  const [showWellington, setShowWellington] = useState(false);
+  const [autoTrading, setAutoTrading] = useState(false);
+  const [wellingtonAnalysis, setWellingtonAnalysis] = useState(null);
 
   useEffect(() => {
     fetchAccountData();
@@ -1210,6 +1218,76 @@ const PaperTradingPage = ({ viewMode }) => {
       setMessage({ type: 'success', text: 'Account reset successfully!' });
       await fetchAccountData();
     } catch (e) {
+
+  // Wellington AI Functions
+  const sendWellingtonMessage = async () => {
+    if (!wellingtonInput.trim()) return;
+    
+    const userMsg = wellingtonInput;
+    setWellingtonInput('');
+    setWellingtonChat(prev => [...prev, { role: 'user', content: userMsg }]);
+    setWellingtonThinking(true);
+    
+    try {
+      const res = await axios.post(`${API}/wellington/chat`, {
+        message: userMsg,
+        include_context: true
+      });
+      
+      setWellingtonChat(prev => [...prev, { 
+        role: 'assistant', 
+        content: res.data.response 
+      }]);
+    } catch (e) {
+      setWellingtonChat(prev => [...prev, { 
+        role: 'error', 
+        content: 'Error communicating with Wellington AI' 
+      }]);
+    } finally {
+      setWellingtonThinking(false);
+    }
+  };
+
+  const getWellingtonAnalysis = async () => {
+    setWellingtonThinking(true);
+    try {
+      const res = await axios.post(`${API}/wellington/analyze`);
+      setWellingtonAnalysis(res.data);
+      setMessage({ 
+        type: 'success', 
+        text: 'Wellington AI analysis complete! Check recommendations below.' 
+      });
+    } catch (e) {
+      setMessage({ type: 'error', text: 'Analysis failed' });
+    } finally {
+      setWellingtonThinking(false);
+    }
+  };
+
+  const startAutoTrading = async () => {
+    if (!window.confirm('Start Wellington AI autonomous trading with $500 allocation?')) return;
+    
+    setAutoTrading(true);
+    try {
+      const res = await axios.post(`${API}/wellington/auto-trade`);
+      
+      if (res.data.error) {
+        setMessage({ type: 'error', text: res.data.error });
+      } else {
+        setMessage({ 
+          type: 'success', 
+          text: `Wellington AI executed ${res.data.trades_executed} trades autonomously!` 
+        });
+        setWellingtonAnalysis(res.data.analysis);
+        await fetchAccountData();
+      }
+    } catch (e) {
+      setMessage({ type: 'error', text: 'Auto-trading failed' });
+    } finally {
+      setAutoTrading(false);
+    }
+  };
+
       setMessage({ type: 'error', text: 'Reset failed' });
     }
   };
@@ -1230,12 +1308,21 @@ const PaperTradingPage = ({ viewMode }) => {
           <h1 className="page-title">PAPER TRADING</h1>
           <p className="page-subtitle">Virtual Trading Simulator - Practice Without Risk</p>
         </div>
-        <button
-          onClick={resetAccount}
-          className="btn-quant px-4 py-2 text-xs"
-        >
-          Reset Account
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowWellington(!showWellington)}
+            className={`btn-quant px-4 py-2 text-xs ${showWellington ? 'bg-[#00e676]' : ''}`}
+          >
+            <Brain size={16} className="inline mr-2" />
+            Wellington AI
+          </button>
+          <button
+            onClick={resetAccount}
+            className="btn-quant px-4 py-2 text-xs"
+          >
+            Reset Account
+          </button>
+        </div>
       </div>
 
       {/* Account Summary Bar */}
@@ -1266,6 +1353,124 @@ const PaperTradingPage = ({ viewMode }) => {
             </div>
           </div>
         </div>
+
+
+      {/* Wellington AI Panel */}
+      {showWellington && (
+        <div className={`quant-card mb-4 ${isBloomberg ? 'bg-[#000] border-[#00e676]/50' : 'border-[#00e676]/50'}`}>
+          <div className="quant-card-header bg-gradient-to-r from-[#00e676] to-[#00bcd4] text-black">
+            <Brain size={20} className="inline mr-2" />
+            Wellington AI - Financial Supercomputer
+          </div>
+          <div className="p-4">
+            <div className="grid grid-cols-3 gap-4 mb-4">
+              <button
+                onClick={getWellingtonAnalysis}
+                disabled={wellingtonThinking}
+                className="btn-quant py-2 text-sm bg-[#00e676] hover:bg-[#00e676]/80 text-black"
+              >
+                {wellingtonThinking ? 'Analyzing...' : 'Analyze Watchlist'}
+              </button>
+              <button
+                onClick={startAutoTrading}
+                disabled={autoTrading || wellingtonThinking}
+                className="btn-quant py-2 text-sm bg-[#ff6b6b] hover:bg-[#ff6b6b]/80"
+              >
+                {autoTrading ? 'Trading...' : 'Start Auto-Trading ($500)'}
+              </button>
+              <div className="text-xs text-[#71717a] flex items-center justify-center">
+                AI Status: {wellingtonThinking ? '🟡 Thinking' : '🟢 Ready'}
+              </div>
+            </div>
+
+            {/* Wellington Analysis Display */}
+            {wellingtonAnalysis && (
+              <div className="mb-4 p-3 bg-[#18181b] rounded border border-[#00e676]/30">
+                <div className="text-sm font-semibold text-[#00e676] mb-2">AI Recommendations:</div>
+                {wellingtonAnalysis.recommendations && wellingtonAnalysis.recommendations.length > 0 ? (
+                  <div className="space-y-2">
+                    {wellingtonAnalysis.recommendations.slice(0, 3).map((rec, idx) => (
+                      <div key={idx} className="p-2 bg-[#0a0a0a] rounded border border-[#27272a]">
+                        <div className="flex justify-between items-center">
+                          <span className="font-mono font-bold text-[#3b82f6]">{rec.symbol}</span>
+                          <span className={`px-2 py-1 text-xs rounded ${rec.action === 'BUY' ? 'bg-profit/20 text-profit' : 'bg-loss/20 text-loss'}`}>
+                            {rec.action}
+                          </span>
+                        </div>
+                        <div className="text-xs text-[#a1a1aa] mt-1">
+                          Confidence: {rec.confidence}/10 | {rec.reasoning}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-xs text-[#71717a]">
+                    {wellingtonAnalysis.raw_response || 'No recommendations available'}
+                  </div>
+                )}
+                {wellingtonAnalysis.market_outlook && (
+                  <div className="mt-3 text-xs text-[#a1a1aa]">
+                    <span className="text-[#00e676]">Market Outlook:</span> {wellingtonAnalysis.market_outlook}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Wellington Chat Interface */}
+            <div className="border border-[#27272a] rounded">
+              <div className="bg-[#18181b] p-2 border-b border-[#27272a] text-xs font-semibold text-[#00e676]">
+                Chat with Wellington AI
+              </div>
+              <div className="h-64 overflow-y-auto p-3 space-y-2 bg-[#0a0a0a]">
+                {wellingtonChat.length === 0 ? (
+                  <div className="text-center text-[#71717a] text-xs py-8">
+                    Ask Wellington AI anything about trading, markets, or strategies...
+                  </div>
+                ) : (
+                  wellingtonChat.map((msg, idx) => (
+                    <div key={idx} className={`p-2 rounded text-xs ${
+                      msg.role === 'user' 
+                        ? 'bg-[#3b82f6]/20 text-right ml-12' 
+                        : msg.role === 'error'
+                        ? 'bg-loss/20 text-loss'
+                        : 'bg-[#00e676]/10 mr-12'
+                    }`}>
+                      <div className="font-semibold mb-1">
+                        {msg.role === 'user' ? 'You' : msg.role === 'error' ? 'Error' : 'Wellington AI'}
+                      </div>
+                      <div className="whitespace-pre-wrap">{msg.content}</div>
+                    </div>
+                  ))
+                )}
+                {wellingtonThinking && (
+                  <div className="text-center text-[#00e676] text-xs">
+                    Wellington AI is thinking...
+                  </div>
+                )}
+              </div>
+              <div className="p-2 bg-[#18181b] flex gap-2">
+                <input
+                  type="text"
+                  value={wellingtonInput}
+                  onChange={(e) => setWellingtonInput(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && sendWellingtonMessage()}
+                  placeholder="Ask Wellington AI..."
+                  className="flex-1 px-3 py-2 bg-[#0a0a0a] border border-[#27272a] rounded text-sm"
+                  disabled={wellingtonThinking}
+                />
+                <button
+                  onClick={sendWellingtonMessage}
+                  disabled={wellingtonThinking || !wellingtonInput.trim()}
+                  className="btn-quant px-4 py-2 text-sm"
+                >
+                  Send
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       </div>
 
       {/* Message Display */}
