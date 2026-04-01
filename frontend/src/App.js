@@ -1148,6 +1148,7 @@ const PaperTradingPage = ({ viewMode }) => {
   const [uploadedFile, setUploadedFile] = useState(null);
   const [uploadedImage, setUploadedImage] = useState(null);
   const [urlInput, setUrlInput] = useState('');
+  const [roiTarget, setRoiTarget] = useState(50);
 
   useEffect(() => {
     fetchAccountData();
@@ -1311,11 +1312,11 @@ const PaperTradingPage = ({ viewMode }) => {
   const getWellingtonAnalysis = async () => {
     setWellingtonThinking(true);
     try {
-      const res = await axios.post(`${API}/wellington/analyze`);
+      const res = await axios.post(`${API}/wellington/analyze?roi_target=${roiTarget}`);
       setWellingtonAnalysis(res.data);
       setMessage({ 
         type: 'success', 
-        text: 'Wellington AI analysis complete! Check recommendations below.' 
+        text: `Wellington AI analyzed for ${roiTarget}% ROI target! Check recommendations below.` 
       });
     } catch (e) {
       setMessage({ type: 'error', text: 'Analysis failed' });
@@ -1325,18 +1326,19 @@ const PaperTradingPage = ({ viewMode }) => {
   };
 
   const startAutoTrading = async () => {
-    if (!window.confirm('Start Wellington AI autonomous trading with $500 allocation?')) return;
+    const roiText = roiTarget >= 1000 ? 'UNLIMITED (>1000%)' : `${roiTarget}%`;
+    if (!window.confirm(`Start Wellington AI autonomous trading with ${roiText} ROI target using $500 allocation?`)) return;
     
     setAutoTrading(true);
     try {
-      const res = await axios.post(`${API}/wellington/auto-trade`);
+      const res = await axios.post(`${API}/wellington/auto-trade?roi_target=${roiTarget}`);
       
       if (res.data.error) {
         setMessage({ type: 'error', text: res.data.error });
       } else {
         setMessage({ 
           type: 'success', 
-          text: `Wellington AI executed ${res.data.trades_executed} trades autonomously!` 
+          text: `Wellington AI executed ${res.data.trades_executed} trades targeting ${roiText} ROI!` 
         });
         setWellingtonAnalysis(res.data.analysis);
         await fetchAccountData();
@@ -1423,6 +1425,78 @@ const PaperTradingPage = ({ viewMode }) => {
             Wellington AI - Financial Supercomputer
           </div>
           <div className="p-4">
+            {/* ROI Target Selection */}
+            <div className="mb-4 p-3 bg-[#18181b] rounded border border-[#00e676]/30">
+              <div className="text-xs text-[#00e676] font-semibold mb-2 uppercase">🎯 Select ROI Target:</div>
+              <div className="grid grid-cols-5 gap-2">
+                <button
+                  onClick={() => setRoiTarget(50)}
+                  className={`py-2 px-3 rounded text-xs font-semibold transition-all ${
+                    roiTarget === 50 
+                      ? 'bg-[#3b82f6] text-white scale-105' 
+                      : 'bg-[#27272a] text-[#a1a1aa] hover:bg-[#3b82f6]/50'
+                  }`}
+                >
+                  50%<br/>
+                  <span className="text-[10px] opacity-70">Moderate</span>
+                </button>
+                <button
+                  onClick={() => setRoiTarget(60)}
+                  className={`py-2 px-3 rounded text-xs font-semibold transition-all ${
+                    roiTarget === 60 
+                      ? 'bg-[#10b981] text-white scale-105' 
+                      : 'bg-[#27272a] text-[#a1a1aa] hover:bg-[#10b981]/50'
+                  }`}
+                >
+                  60%<br/>
+                  <span className="text-[10px] opacity-70">Balanced</span>
+                </button>
+                <button
+                  onClick={() => setRoiTarget(80)}
+                  className={`py-2 px-3 rounded text-xs font-semibold transition-all ${
+                    roiTarget === 80 
+                      ? 'bg-[#f59e0b] text-white scale-105' 
+                      : 'bg-[#27272a] text-[#a1a1aa] hover:bg-[#f59e0b]/50'
+                  }`}
+                >
+                  80%<br/>
+                  <span className="text-[10px] opacity-70">Aggressive</span>
+                </button>
+                <button
+                  onClick={() => setRoiTarget(100)}
+                  className={`py-2 px-3 rounded text-xs font-semibold transition-all ${
+                    roiTarget === 100 
+                      ? 'bg-[#ef4444] text-white scale-105' 
+                      : 'bg-[#27272a] text-[#a1a1aa] hover:bg-[#ef4444]/50'
+                  }`}
+                >
+                  100%<br/>
+                  <span className="text-[10px] opacity-70">Very Agg.</span>
+                </button>
+                <button
+                  onClick={() => setRoiTarget(1000)}
+                  className={`py-2 px-3 rounded text-xs font-semibold transition-all ${
+                    roiTarget === 1000 
+                      ? 'bg-gradient-to-r from-[#ec4899] to-[#8b5cf6] text-white scale-105 animate-pulse' 
+                      : 'bg-[#27272a] text-[#a1a1aa] hover:bg-gradient-to-r hover:from-[#ec4899]/50 hover:to-[#8b5cf6]/50'
+                  }`}
+                >
+                  🚀 UNLIMITED<br/>
+                  <span className="text-[10px] opacity-70">&gt;1000%</span>
+                </button>
+              </div>
+              <div className="mt-2 text-center text-xs text-[#71717a]">
+                Selected: <span className={`font-mono font-bold ${
+                  roiTarget >= 1000 ? 'text-[#ec4899]' : 
+                  roiTarget >= 100 ? 'text-[#ef4444]' : 
+                  roiTarget >= 80 ? 'text-[#f59e0b]' : 
+                  roiTarget >= 60 ? 'text-[#10b981]' : 'text-[#3b82f6]'
+                }`}>
+                  {roiTarget >= 1000 ? 'UNLIMITED (>1000%)' : `${roiTarget}% ROI Target`}
+                </span>
+              </div>
+            </div>
+
             <div className="grid grid-cols-3 gap-4 mb-4">
               <button
                 onClick={getWellingtonAnalysis}
@@ -1446,31 +1520,63 @@ const PaperTradingPage = ({ viewMode }) => {
             {/* Wellington Analysis Display */}
             {wellingtonAnalysis && (
               <div className="mb-4 p-3 bg-[#18181b] rounded border border-[#00e676]/30">
-                <div className="text-sm font-semibold text-[#00e676] mb-2">AI Recommendations:</div>
+                <div className="flex justify-between items-center mb-3">
+                  <div className="text-sm font-semibold text-[#00e676]">AI Recommendations:</div>
+                  {wellingtonAnalysis.risk_profile && (
+                    <div className={`px-2 py-1 text-xs rounded ${
+                      wellingtonAnalysis.risk_profile.includes('ULTRA') ? 'bg-[#ec4899]/20 text-[#ec4899]' :
+                      wellingtonAnalysis.risk_profile.includes('VERY') ? 'bg-[#ef4444]/20 text-[#ef4444]' :
+                      wellingtonAnalysis.risk_profile.includes('AGGRESSIVE') ? 'bg-[#f59e0b]/20 text-[#f59e0b]' :
+                      'bg-[#3b82f6]/20 text-[#3b82f6]'
+                    }`}>
+                      {wellingtonAnalysis.risk_profile}
+                    </div>
+                  )}
+                </div>
                 {wellingtonAnalysis.recommendations && wellingtonAnalysis.recommendations.length > 0 ? (
                   <div className="space-y-2">
                     {wellingtonAnalysis.recommendations.slice(0, 3).map((rec, idx) => (
                       <div key={idx} className="p-2 bg-[#0a0a0a] rounded border border-[#27272a]">
-                        <div className="flex justify-between items-center">
+                        <div className="flex justify-between items-center mb-1">
                           <span className="font-mono font-bold text-[#3b82f6]">{rec.symbol}</span>
-                          <span className={`px-2 py-1 text-xs rounded ${rec.action === 'BUY' ? 'bg-profit/20 text-profit' : 'bg-loss/20 text-loss'}`}>
-                            {rec.action}
-                          </span>
+                          <div className="flex gap-2 items-center">
+                            {rec.expected_roi && (
+                              <span className="px-2 py-0.5 bg-[#00e676]/20 text-[#00e676] text-xs rounded font-mono">
+                                +{rec.expected_roi}% ROI
+                              </span>
+                            )}
+                            <span className={`px-2 py-1 text-xs rounded ${rec.action === 'BUY' ? 'bg-profit/20 text-profit' : 'bg-loss/20 text-loss'}`}>
+                              {rec.action}
+                            </span>
+                          </div>
                         </div>
-                        <div className="text-xs text-[#a1a1aa] mt-1">
-                          Confidence: {rec.confidence}/10 | {rec.reasoning}
+                        <div className="text-xs text-[#a1a1aa] mb-1">
+                          <span className="text-[#00e676]">Confidence:</span> {rec.confidence}/10 | {rec.reasoning}
                         </div>
+                        {rec.target_price && (
+                          <div className="text-[10px] text-[#71717a] flex gap-3">
+                            <span>Entry: ${rec.entry_price}</span>
+                            <span>Target: ${rec.target_price}</span>
+                            {rec.stop_loss && <span>Stop: ${rec.stop_loss}</span>}
+                            {rec.time_horizon && <span>Time: {rec.time_horizon}</span>}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
                 ) : (
                   <div className="text-xs text-[#71717a]">
-                    {wellingtonAnalysis.raw_response || 'No recommendations available'}
+                    {wellingtonAnalysis.raw_response || wellingtonAnalysis.error || 'No recommendations available'}
                   </div>
                 )}
-                {wellingtonAnalysis.market_outlook && (
-                  <div className="mt-3 text-xs text-[#a1a1aa]">
-                    <span className="text-[#00e676]">Market Outlook:</span> {wellingtonAnalysis.market_outlook}
+                {wellingtonAnalysis.strategy && (
+                  <div className="mt-3 text-xs text-[#a1a1aa] p-2 bg-[#0a0a0a] rounded">
+                    <span className="text-[#00e676]">Strategy:</span> {wellingtonAnalysis.strategy}
+                  </div>
+                )}
+                {wellingtonAnalysis.disclaimer && (
+                  <div className="mt-2 text-[10px] text-[#71717a] italic">
+                    ⚠️ {wellingtonAnalysis.disclaimer}
                   </div>
                 )}
               </div>

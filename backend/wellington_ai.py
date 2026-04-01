@@ -60,53 +60,118 @@ Communication Style: Professional, data-driven, confident but cautious. Always e
             system_message=system_message
         ).with_model("anthropic", self.model)
     
-    async def analyze_watchlist(self, watchlist: List[Dict], account_data: Dict) -> Dict:
+    async def analyze_watchlist(self, watchlist: List[Dict], account_data: Dict, roi_target: float = 50.0) -> Dict:
         """
-        Analyze watchlist and generate trading recommendations
+        Analyze watchlist and generate trading recommendations based on ROI target
+        
+        Args:
+            roi_target: Desired ROI percentage (50, 60, 80, 100, or 1000+ for unlimited)
         
         Returns: {
-            "recommendations": [{"symbol", "action", "confidence", "reasoning"}],
+            "recommendations": [{"symbol", "action", "confidence", "reasoning", "expected_roi"}],
             "portfolio_advice": str,
-            "risk_assessment": str
+            "risk_assessment": str,
+            "strategy": str
         }
         """
         chat = self.create_chat_session("watchlist-analysis")
         
         # Build comprehensive analysis prompt
-        watchlist_summary = self._format_watchlist(watchlist[:10])  # Top 10 for analysis
+        watchlist_summary = self._format_watchlist(watchlist[:15])  # Top 15 for better analysis
         account_summary = self._format_account(account_data)
         
-        prompt = f"""Analyze these top institutional holdings and provide trading recommendations for our $500 automated trading allocation:
+        # Adjust strategy based on ROI target
+        if roi_target >= 1000:
+            risk_profile = "ULTRA-AGGRESSIVE"
+            strategy_guidance = """Focus on:
+- High-volatility stocks with explosive potential (small/mid caps)
+- Momentum plays with 10x+ upside potential
+- Options-like leverage through concentrated positions
+- High-growth tech, biotech, or speculative sectors
+- Accept 80%+ position risk for potential 1000%+ gains"""
+            position_sizing = "50-100% allocation per trade (concentrated bets)"
+        elif roi_target >= 100:
+            risk_profile = "VERY AGGRESSIVE"
+            strategy_guidance = """Focus on:
+- High-growth momentum stocks
+- Volatile tech names with strong catalysts
+- Position size: 30-40% per trade
+- Accept higher drawdown risk for 100%+ potential"""
+            position_sizing = "30-40% allocation per trade"
+        elif roi_target >= 80:
+            risk_profile = "AGGRESSIVE"
+            strategy_guidance = """Focus on:
+- Growth stocks with strong momentum
+- Technical breakouts with 80%+ upside
+- Position size: 20-30% per trade
+- Higher risk tolerance for higher returns"""
+            position_sizing = "20-30% allocation per trade"
+        elif roi_target >= 60:
+            risk_profile = "MODERATE-AGGRESSIVE"
+            strategy_guidance = """Focus on:
+- Quality growth stocks
+- Hedge fund favorites showing momentum
+- Position size: 15-20% per trade
+- Balance risk/reward for 60%+ target"""
+            position_sizing = "15-20% allocation per trade"
+        else:  # 50%
+            risk_profile = "MODERATE"
+            strategy_guidance = """Focus on:
+- Blue-chip stocks with steady growth
+- Proven hedge fund positions
+- Position size: 10-15% per trade
+- Conservative 50% target with downside protection"""
+            position_sizing = "10-15% allocation per trade"
+        
+        prompt = f"""You are Wellington AI managing $500 automated trading allocation.
 
+ROI TARGET: {roi_target}% 
+RISK PROFILE: {risk_profile}
+{strategy_guidance}
+
+WATCHLIST (Top Institutional Holdings):
 {watchlist_summary}
 
-Current Account Status:
+CURRENT ACCOUNT:
 {account_summary}
 
-Please provide:
-1. **Top 3 BUY Recommendations** (with confidence scores 1-10)
-2. **Stocks to AVOID** (with reasoning)
-3. **Risk Assessment** for current market conditions
-4. **Portfolio Balance** recommendation
+TASK: Identify the BEST trades to achieve {roi_target}% ROI or higher.
 
-Format as JSON:
+Provide recommendations in this exact JSON format:
 {{
   "recommendations": [
-    {{"symbol": "TICKER", "action": "BUY/SELL", "confidence": 8, "reasoning": "...", "position_size": 100}}
+    {{
+      "symbol": "TICKER",
+      "action": "BUY",
+      "confidence": 9,
+      "reasoning": "Specific catalyst/technical reason for {roi_target}%+ potential",
+      "expected_roi": 150,
+      "entry_price": 250.50,
+      "target_price": 625.00,
+      "stop_loss": 200.00,
+      "position_size": 200,
+      "time_horizon": "2-4 weeks"
+    }}
   ],
-  "avoid": ["TICKER1", "TICKER2"],
-  "risk_level": "LOW/MEDIUM/HIGH",
-  "market_outlook": "Brief assessment",
-  "strategy": "Current strategy recommendation"
-}}"""
+  "risk_level": "{risk_profile}",
+  "market_outlook": "Brief market assessment",
+  "strategy": "How to achieve {roi_target}% ROI",
+  "disclaimer": "Risk warning for {risk_profile} strategy"
+}}
+
+Position Sizing: {position_sizing}
+Minimum Confidence: {8 if roi_target >= 100 else 7}
+Select 2-3 HIGHEST CONVICTION trades that can realistically achieve {roi_target}%+ returns."""
 
         try:
             response = await chat.send_message(UserMessage(text=prompt))
-            # Parse AI response
-            return self._parse_ai_response(response)
+            analysis = self._parse_ai_response(response)
+            analysis["roi_target"] = roi_target
+            analysis["risk_profile"] = risk_profile
+            return analysis
         except Exception as e:
             logging.error(f"Wellington AI analysis error: {e}")
-            return {"error": str(e), "recommendations": []}
+            return {"error": str(e), "recommendations": [], "roi_target": roi_target}
     
     async def execute_autonomous_trade(self, recommendation: Dict, current_price: float) -> Dict:
         """

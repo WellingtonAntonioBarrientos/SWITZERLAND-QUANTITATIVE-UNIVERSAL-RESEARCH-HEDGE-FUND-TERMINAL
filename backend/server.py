@@ -1471,8 +1471,8 @@ async def wellington_upload_file(file: bytes = File(...), filename: str = Form(.
         return {"error": str(e)}
 
 @api_router.post("/wellington/analyze")
-async def wellington_analyze_watchlist(user: dict = Depends(verify_token)):
-    """Have Wellington AI analyze the watchlist and provide recommendations"""
+async def wellington_analyze_watchlist(roi_target: float = 50.0, user: dict = Depends(verify_token)):
+    """Have Wellington AI analyze the watchlist with ROI target"""
     try:
         api_key = os.environ.get('EMERGENT_LLM_KEY')
         if not api_key:
@@ -1507,8 +1507,8 @@ async def wellington_analyze_watchlist(user: dict = Depends(verify_token)):
         if not account:
             account = create_default_account(user_id)
         
-        # Analyze
-        analysis = await wellington.analyze_watchlist(watchlist, account)
+        # Analyze with ROI target
+        analysis = await wellington.analyze_watchlist(watchlist, account, roi_target)
         
         return analysis
     except Exception as e:
@@ -1516,8 +1516,8 @@ async def wellington_analyze_watchlist(user: dict = Depends(verify_token)):
         return {"error": str(e)}
 
 @api_router.post("/wellington/auto-trade")
-async def wellington_auto_trade(user: dict = Depends(verify_token)):
-    """Execute autonomous trading with $500 allocation"""
+async def wellington_auto_trade(roi_target: float = 50.0, user: dict = Depends(verify_token)):
+    """Execute autonomous trading with ROI target"""
     try:
         api_key = os.environ.get('EMERGENT_LLM_KEY')
         if not api_key:
@@ -1549,23 +1549,22 @@ async def wellington_auto_trade(user: dict = Depends(verify_token)):
                     "change": holding["change"]
                 })
         
-        # Get AI recommendations
-        analysis = await wellington.analyze_watchlist(watchlist, account)
+        # Get AI recommendations with ROI target
+        analysis = await wellington.analyze_watchlist(watchlist, account, roi_target)
         
         if "error" in analysis or not analysis.get("recommendations"):
             return {"error": "No recommendations generated", "analysis": analysis}
         
-        # Execute top recommendation if confidence > 6
+        # Execute recommendations based on confidence threshold
+        min_confidence = 8 if roi_target >= 100 else 7 if roi_target >= 80 else 6
+        
         executed_trades = []
-        for rec in analysis["recommendations"][:3]:  # Top 3 recommendations
-            if rec.get("confidence", 0) >= 6:
-                # Find stock in watchlist
+        for rec in analysis["recommendations"][:3]:
+            if rec.get("confidence", 0) >= min_confidence:
                 stock = next((s for s in watchlist if s["symbol"] == rec["symbol"]), None)
                 if stock and stock["current_price"] > 0:
-                    # Execute trade
                     trade = await wellington.execute_autonomous_trade(rec, stock["current_price"])
                     
-                    # Place order in paper trading
                     order = {
                         "order_id": str(uuid4()),
                         "symbol": trade["symbol"],
@@ -1579,17 +1578,19 @@ async def wellington_auto_trade(user: dict = Depends(verify_token)):
                         "timestamp": trade["timestamp"],
                         "hedge_fund": stock["hedge_fund"],
                         "wellington_ai": True,
-                        "confidence": trade["confidence"]
+                        "confidence": trade["confidence"],
+                        "roi_target": roi_target,
+                        "expected_roi": rec.get("expected_roi", roi_target)
                     }
                     
                     account = execute_market_order(account, order, stock["current_price"])
-                    executed_trades.append(trade)
+                    executed_trades.append({**trade, "expected_roi": rec.get("expected_roi", roi_target)})
         
-        # Update account
         await db.paper_accounts.update_one({"user_id": user_id}, {"$set": account})
         
         return {
             "status": "success",
+            "roi_target": roi_target,
             "trades_executed": len(executed_trades),
             "trades": executed_trades,
             "analysis": analysis
