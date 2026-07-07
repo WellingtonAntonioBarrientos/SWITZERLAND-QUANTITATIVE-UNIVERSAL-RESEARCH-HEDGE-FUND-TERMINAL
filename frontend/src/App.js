@@ -565,10 +565,16 @@ const PaperTradingPage = ({ viewMode }) => {
   const [uploadedImage, setUploadedImage] = useState(null);
   const [urlInput, setUrlInput] = useState('');
   const [roiTarget, setRoiTarget] = useState(50);
+  const [wellingtonModel, setWellingtonModel] = useState('claude-sonnet-4-6');
+  const [wellingtonModels, setWellingtonModels] = useState([]);
 
   useEffect(() => {
     fetchAccountData();
     fetchWatchlist();
+    axios.get(`${API}/wellington/models`).then(res => {
+      setWellingtonModels(res.data.models || []);
+      if (res.data.default) setWellingtonModel(res.data.default);
+    }).catch(() => {});
     const interval = setInterval(() => {
       fetchAccountData();
       fetchWatchlist();
@@ -653,6 +659,9 @@ const PaperTradingPage = ({ viewMode }) => {
       setMessage({ type: 'success', text: 'Account reset successfully!' });
       await fetchAccountData();
     } catch (e) {
+      setMessage({ type: 'error', text: 'Reset failed' });
+    }
+  };
 
   // Wellington AI Functions
   const sendWellingtonMessage = async () => {
@@ -705,7 +714,8 @@ const PaperTradingPage = ({ viewMode }) => {
       else {
         const res = await axios.post(`${API}/wellington/chat`, {
           message: userMsg,
-          include_context: true
+          include_context: true,
+          model: wellingtonModel
         });
         response = res.data.response;
         
@@ -718,6 +728,7 @@ const PaperTradingPage = ({ viewMode }) => {
           role: 'assistant', 
           content: response,
           mode: modeUsed,
+          model: res.data.model_used || wellingtonModel,
           thinking: thinking,
           code: code
         }]);
@@ -793,10 +804,6 @@ const PaperTradingPage = ({ viewMode }) => {
       setMessage({ type: 'error', text: 'Auto-trading failed' });
     } finally {
       setAutoTrading(false);
-    }
-  };
-
-      setMessage({ type: 'error', text: 'Reset failed' });
     }
   };
 
@@ -1030,8 +1037,21 @@ const PaperTradingPage = ({ viewMode }) => {
 
             {/* Wellington Chat Interface */}
             <div className="border border-[#27272a] rounded">
-              <div className="bg-[#18181b] p-2 border-b border-[#27272a] text-xs font-semibold text-[#00e676]">
-                Chat with Wellington AI
+              <div className="bg-[#18181b] p-2 border-b border-[#27272a] flex items-center justify-between gap-2">
+                <span className="text-xs font-semibold text-[#00e676]">Chat with Wellington AI</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[9px] uppercase text-[#71717a]">Model</span>
+                  <select
+                    value={wellingtonModel}
+                    onChange={(e) => setWellingtonModel(e.target.value)}
+                    className="bg-[#0a0a0a] border border-[#27272a] rounded-sm text-[10px] text-[#ededed] px-2 py-1 font-mono focus:border-[#00e676] focus:outline-none cursor-pointer"
+                    data-testid="wellington-model-select"
+                  >
+                    {(wellingtonModels.length > 0 ? wellingtonModels : [{ id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', tag: 'Latest · Recommended' }]).map(m => (
+                      <option key={m.id} value={m.id}>{m.label} — {m.tag}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
               <div className="h-64 overflow-y-auto p-3 space-y-2 bg-[#0a0a0a]">
                 {wellingtonChat.length === 0 ? (
@@ -1049,7 +1069,13 @@ const PaperTradingPage = ({ viewMode }) => {
                     }`}>
                       <div className="font-semibold mb-1 flex items-center gap-2 justify-between">
                         <span>{msg.role === 'user' ? 'You' : msg.role === 'error' ? 'Error' : 'Wellington AI'}</span>
-                        {msg.mode && msg.mode !== 'standard' && (
+                        <span className="flex items-center gap-1.5">
+                          {msg.model && (
+                            <span className="px-1.5 py-0.5 text-[8px] font-mono rounded bg-[#27272a] text-[#a1a1aa]" data-testid="wellington-msg-model">
+                              {msg.model}
+                            </span>
+                          )}
+                          {msg.mode && msg.mode !== 'standard' && (
                           <span className={`px-2 py-0.5 text-[9px] font-mono rounded ${
                             msg.mode === 'code_generation' ? 'bg-[#3b82f6]/30 text-[#3b82f6]' :
                             msg.mode === 'deep_analysis' ? 'bg-[#8b5cf6]/30 text-[#8b5cf6]' :
@@ -1061,6 +1087,7 @@ const PaperTradingPage = ({ viewMode }) => {
                             {msg.mode.replace(/_/g, ' ').toUpperCase()}
                           </span>
                         )}
+                        </span>
                       </div>
                       
                       {/* Thinking Process */}

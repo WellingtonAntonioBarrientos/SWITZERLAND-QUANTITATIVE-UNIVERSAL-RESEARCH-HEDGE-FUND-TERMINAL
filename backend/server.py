@@ -1288,6 +1288,13 @@ class WellingtonChatRequest(BaseModel):
     image_data: Optional[str] = None
     file_content: Optional[str] = None
     url_content: Optional[str] = None
+    model: Optional[str] = None  # Claude model id (validated against available models)
+
+@api_router.get("/wellington/models")
+async def get_wellington_models():
+    """List available Anthropic Claude models for the Wellington AI model picker"""
+    from wellington_orchestrator import AVAILABLE_MODELS, DEFAULT_MODEL
+    return {"models": AVAILABLE_MODELS, "default": DEFAULT_MODEL}
 
 @api_router.post("/wellington/chat")
 async def chat_with_wellington(request: WellingtonChatRequest, user: dict = Depends(verify_token_dep)):
@@ -1329,13 +1336,16 @@ async def chat_with_wellington(request: WellingtonChatRequest, user: dict = Depe
             context,
             image_data=request.image_data,
             file_content=request.file_content,
-            url_content=request.url_content
+            url_content=request.url_content,
+            model=request.model
         )
         
         # Return enhanced response with mode information
+        from wellington_orchestrator import resolve_model
         return {
             "response": result.get("response", ""),
             "mode_used": result.get("mode_used", "standard"),
+            "model_used": resolve_model(request.model),
             "thinking": result.get("thinking", ""),
             "code": result.get("code", ""),
             "metadata": result.get("metadata", {}),

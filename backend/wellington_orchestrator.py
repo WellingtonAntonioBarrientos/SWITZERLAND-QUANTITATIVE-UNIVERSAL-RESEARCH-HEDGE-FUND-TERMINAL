@@ -9,6 +9,20 @@ import logging
 
 QueryType = Literal["standard", "deep_analysis", "code_generation", "research", "strategy_builder", "debate"]
 
+# Available Anthropic Claude models for the Wellington AI model picker
+AVAILABLE_MODELS = [
+    {"id": "claude-sonnet-4-6", "label": "Claude Sonnet 4.6", "tag": "Latest · Recommended"},
+    {"id": "claude-opus-4-8", "label": "Claude Opus 4.8", "tag": "Most Powerful"},
+    {"id": "claude-haiku-4-5-20251001", "label": "Claude Haiku 4.5", "tag": "Fastest"},
+    {"id": "claude-sonnet-4-5-20250929", "label": "Claude Sonnet 4.5", "tag": "Stable"},
+]
+DEFAULT_MODEL = "claude-sonnet-4-6"
+
+def resolve_model(model: Optional[str]) -> str:
+    """Validate a requested model id, falling back to the default"""
+    valid_ids = {m["id"] for m in AVAILABLE_MODELS}
+    return model if model in valid_ids else DEFAULT_MODEL
+
 class WellingtonOrchestrator:
     """
     Intelligent orchestrator that automatically detects query intent
@@ -100,7 +114,8 @@ class WellingtonOrchestrator:
         context: Dict,
         image_data: Optional[str] = None,
         file_content: Optional[str] = None,
-        url_content: Optional[str] = None
+        url_content: Optional[str] = None,
+        model: Optional[str] = None
     ) -> Dict:
         """
         Process user query with automatic mode selection
@@ -114,6 +129,11 @@ class WellingtonOrchestrator:
         }
         """
         try:
+            # Apply requested Claude model (validated, falls back to default)
+            selected_model = resolve_model(model)
+            self.standard_ai.model = selected_model
+            self.advanced_ai.model = selected_model
+            
             # Classify the query
             query_type = self.classify_query(user_message)
             

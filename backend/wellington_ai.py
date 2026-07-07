@@ -24,7 +24,7 @@ class WellingtonAI:
     
     def __init__(self, api_key: str):
         self.api_key = api_key
-        self.model = "claude-sonnet-4-5-20250929"
+        self.model = "claude-sonnet-4-6"
         self.trading_history = []
         self.learning_data = {
             "successful_trades": [],
