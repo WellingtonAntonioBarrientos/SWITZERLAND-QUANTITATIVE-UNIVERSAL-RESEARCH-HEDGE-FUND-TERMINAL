@@ -23,566 +23,9 @@ import { Surface3DChart, CorrelationMatrix3D, PriceHistory3D, MarketIndices3D } 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
-// ============== AUTH CONTEXT ==============
-const useAuth = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [userEmail, setUserEmail] = useState(null);
-
-  useEffect(() => {
-    const token = localStorage.getItem('quantflow_token');
-    if (token) {
-      verifyToken(token);
-    } else {
-      setLoading(false);
-    }
-  }, []);
-
-  const verifyToken = async (token) => {
-    try {
-      const res = await axios.get(`${API}/auth/verify`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setIsAuthenticated(true);
-      setUserEmail(res.data.email);
-    } catch (e) {
-      localStorage.removeItem('quantflow_token');
-      setIsAuthenticated(false);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const login = async (email, password) => {
-    const res = await axios.post(`${API}/auth/login`, { email, password });
-    localStorage.setItem('quantflow_token', res.data.token);
-    setIsAuthenticated(true);
-    setUserEmail(res.data.email);
-    return res.data;
-  };
-
-  const logout = () => {
-    localStorage.removeItem('quantflow_token');
-    setIsAuthenticated(false);
-    setUserEmail(null);
-  };
-
-  return { isAuthenticated, loading, userEmail, login, logout };
-};
-
-// Add auth header to all requests
-axios.interceptors.request.use((config) => {
-  const token = localStorage.getItem('quantflow_token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
-// ============== LOGIN PAGE ==============
-const LoginPage = ({ onLogin }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-    
-    try {
-      await onLogin(email, password);
-    } catch (err) {
-      setError(err.response?.data?.detail || 'Invalid credentials');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-[#050505] flex items-center justify-center p-4" data-testid="login-page">
-      <div className="w-full max-w-md">
-        {/* Logo & Title */}
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-gradient-to-br from-[#0ea5e9] to-[#22d3ee] rounded-sm mx-auto flex items-center justify-center mb-4">
-            <span className="text-2xl font-bold text-white font-['Space_Grotesk']">SQH</span>
-          </div>
-          <h1 className="text-2xl font-semibold text-[#ededed] font-['Space_Grotesk'] tracking-tight">
-            SQH-WELLINGTON'S TERMINAL
-          </h1>
-          <p className="text-sm text-[#71717a] mt-2">
-            Authorized Access Only
-          </p>
-        </div>
-
-        {/* Login Card */}
-        <div className="quant-card">
-          <div className="quant-card-header flex items-center gap-2">
-            <Lock size={14} />
-            <span>TERMINAL ACCESS</span>
-          </div>
-          <form onSubmit={handleSubmit} className="p-6 space-y-4">
-            {error && (
-              <div className="bg-[#ef4444]/10 border border-[#ef4444]/30 text-[#ef4444] px-4 py-3 rounded-sm text-sm flex items-center gap-2">
-                <AlertTriangle size={14} />
-                {error}
-              </div>
-            )}
-            
-            <div>
-              <label className="block text-xs uppercase text-[#71717a] mb-2">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 bg-[#000] border border-[#27272a] rounded-sm text-[#ededed] font-mono text-sm focus:border-[#0ea5e9] focus:outline-none"
-                placeholder="Enter your email"
-                required
-                data-testid="login-email"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-xs uppercase text-[#71717a] mb-2">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 bg-[#000] border border-[#27272a] rounded-sm text-[#ededed] font-mono text-sm focus:border-[#0ea5e9] focus:outline-none"
-                placeholder="Enter your password"
-                required
-                data-testid="login-password"
-              />
-            </div>
-            
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 bg-gradient-to-r from-[#0ea5e9] to-[#22d3ee] text-white font-semibold rounded-sm uppercase text-sm tracking-wider hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
-              data-testid="login-submit"
-            >
-              {loading ? (
-                <RefreshCw size={16} className="animate-spin" />
-              ) : (
-                <>
-                  <Lock size={16} />
-                  Access Terminal
-                </>
-              )}
-            </button>
-          </form>
-        </div>
-
-        <p className="text-center text-[10px] text-[#71717a] mt-6">
-          <a href="/" className="hover:text-[#0ea5e9]">← Back to Home</a>
-        </p>
-      </div>
-    </div>
-  );
-};
-
-// ============== PASSWORD CHANGE MODAL ==============
-const PasswordChangeModal = ({ isOpen, onClose }) => {
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
-    
-    // Validation
-    if (newPassword.length < 8) {
-      setError('New password must be at least 8 characters long');
-      return;
-    }
-    
-    if (newPassword !== confirmPassword) {
-      setError('New passwords do not match');
-      return;
-    }
-    
-    setLoading(true);
-    
-    try {
-      await axios.post(`${API}/auth/change-password`, {
-        current_password: currentPassword,
-        new_password: newPassword
-      });
-      
-      setSuccess('Password changed successfully!');
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-      
-      // Close modal after 2 seconds
-      setTimeout(() => {
-        onClose();
-        setSuccess('');
-      }, 2000);
-      
-    } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to change password');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="w-full max-w-md bg-[#0a0a0a] border border-[#27272a] rounded-lg" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between p-4 border-b border-[#27272a]">
-          <div className="flex items-center gap-2">
-            <Key size={16} className="text-[#3b82f6]" />
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-[#ededed]">Change Password</h2>
-          </div>
-          <button onClick={onClose} className="text-[#71717a] hover:text-[#ededed] transition-colors">
-            <XCircle size={18} />
-          </button>
-        </div>
-        
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {error && (
-            <div className="bg-[#ef4444]/10 border border-[#ef4444]/30 text-[#ef4444] px-4 py-3 rounded-sm text-sm flex items-center gap-2">
-              <AlertTriangle size={14} />
-              {error}
-            </div>
-          )}
-          
-          {success && (
-            <div className="bg-[#00e676]/10 border border-[#00e676]/30 text-[#00e676] px-4 py-3 rounded-sm text-sm flex items-center gap-2">
-              <CheckCircle size={14} />
-              {success}
-            </div>
-          )}
-          
-          <div>
-            <label className="block text-xs uppercase text-[#71717a] mb-2">Current Password</label>
-            <input
-              type="password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              className="w-full px-4 py-2 bg-[#000] border border-[#27272a] rounded-sm text-[#ededed] font-mono text-sm focus:border-[#3b82f6] focus:outline-none"
-              placeholder="Enter current password"
-              required
-              data-testid="current-password"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-xs uppercase text-[#71717a] mb-2">New Password</label>
-            <input
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full px-4 py-2 bg-[#000] border border-[#27272a] rounded-sm text-[#ededed] font-mono text-sm focus:border-[#3b82f6] focus:outline-none"
-              placeholder="Enter new password (min 8 characters)"
-              required
-              data-testid="new-password"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-xs uppercase text-[#71717a] mb-2">Confirm New Password</label>
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full px-4 py-2 bg-[#000] border border-[#27272a] rounded-sm text-[#ededed] font-mono text-sm focus:border-[#3b82f6] focus:outline-none"
-              placeholder="Confirm new password"
-              required
-              data-testid="confirm-password"
-            />
-          </div>
-          
-          <div className="flex gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-2 bg-[#27272a] text-[#ededed] rounded-sm text-sm hover:bg-[#3f3f46] transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex-1 px-4 py-2 bg-[#3b82f6] text-white rounded-sm text-sm hover:bg-[#2563eb] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-              data-testid="change-password-submit"
-            >
-              {loading ? (
-                <RefreshCw size={14} className="animate-spin" />
-              ) : (
-                'Change Password'
-              )}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
-
-// ============== LANDING PAGE ==============
-const LandingPage = () => {
-  const [scrolled, setScrolled] = useState(false);
-
-  useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 50);
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  const features = [
-    {
-      icon: LayoutDashboard,
-      title: "Quant Dashboard",
-      description: "Real-time market data, interactive charts, and comprehensive asset tracking with 2D/3D visualization modes."
-    },
-    {
-      icon: TrendingUp,
-      title: "Macro Regime Analysis",
-      description: "Economic indicators, regime detection algorithms, and correlation matrix analysis for market conditions."
-    },
-    {
-      icon: Globe,
-      title: "World Intel Map",
-      description: "Interactive 3D globe with global market events, geopolitical intelligence, and real-time alerts."
-    },
-    {
-      icon: Briefcase,
-      title: "10 Hedge Fund Strategies",
-      description: "Long/Short Equity, Global Macro, Event-Driven, Quant Multi-Strategy, and more with AI-powered analysis."
-    },
-    {
-      icon: FileText,
-      title: "13F SEC Filings",
-      description: "Track top 10 hedge fund quarterly holdings with AI-powered portfolio analysis and insights."
-    },
-    {
-      icon: Bot,
-      title: "Automation Hub",
-      description: "Automated trading, compliance monitoring, risk management, and investor relations modules."
-    }
-  ];
-
-  const stats = [
-    { value: "10+", label: "Hedge Fund Strategies" },
-    { value: "16", label: "Global Indices" },
-    { value: "5", label: "Automation Modules" },
-    { value: "3", label: "View Modes" }
-  ];
-
-  return (
-    <div className="min-h-screen bg-[#050505] text-[#ededed]" data-testid="landing-page">
-      {/* Navigation */}
-      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'bg-[#050505]/95 backdrop-blur-md border-b border-[#1e3a5f]' : ''}`}>
-        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-[#0ea5e9] to-[#22d3ee] rounded-sm flex items-center justify-center">
-              <span className="text-lg font-bold text-white font-['Space_Grotesk']">SQH</span>
-            </div>
-            <div>
-              <span className="font-['Space_Grotesk'] font-semibold text-lg">SQH-Wellington's Terminal</span>
-              <span className="hidden sm:inline text-xs text-[#71717a] ml-2">Quantitative Control Plane</span>
-            </div>
-          </div>
-          <a 
-            href="/login" 
-            className="px-5 py-2 bg-gradient-to-r from-[#0ea5e9] to-[#22d3ee] text-white font-semibold rounded-sm text-sm uppercase tracking-wider hover:opacity-90 transition-opacity"
-            data-testid="nav-login"
-          >
-            Terminal Access
-          </a>
-        </div>
-      </nav>
-
-      {/* Hero Section */}
-      <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-        {/* Background Grid */}
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(14,165,233,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(14,165,233,0.03)_1px,transparent_1px)] bg-[size:50px_50px]" />
-        
-        {/* Gradient Orbs */}
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#0ea5e9]/10 rounded-full blur-[100px]" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[#22d3ee]/10 rounded-full blur-[100px]" />
-        
-        <div className="relative z-10 max-w-5xl mx-auto px-6 text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#0ea5e9]/10 border border-[#0ea5e9]/30 rounded-full mb-8">
-            <div className="w-2 h-2 bg-[#22d3ee] rounded-full animate-pulse" />
-            <span className="text-xs text-[#22d3ee] uppercase tracking-wider">Hedge Fund Quantitative Platform</span>
-          </div>
-          
-          <h1 className="font-['Space_Grotesk'] text-5xl md:text-7xl font-bold mb-6 leading-tight">
-            <span className="text-[#ededed]">SQH-Wellington's</span>
-            <br />
-            <span className="bg-gradient-to-r from-[#0ea5e9] to-[#22d3ee] bg-clip-text text-transparent">Terminal</span>
-          </h1>
-          
-          <p className="text-xl text-[#94a3b8] max-w-2xl mx-auto mb-10 leading-relaxed">
-            Enterprise-grade quantitative control plane for hedge fund operations. 
-            Market data, macro analysis, global intelligence, and automated trading strategies.
-          </p>
-          
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <a 
-              href="/login" 
-              className="px-8 py-4 bg-gradient-to-r from-[#0ea5e9] to-[#22d3ee] text-white font-semibold rounded-sm uppercase tracking-wider hover:opacity-90 transition-all hover:scale-105"
-              data-testid="hero-login"
-            >
-              Access Terminal
-            </a>
-            <a 
-              href="#features" 
-              className="px-8 py-4 border border-[#1e3a5f] text-[#94a3b8] font-semibold rounded-sm uppercase tracking-wider hover:border-[#0ea5e9] hover:text-[#0ea5e9] transition-all"
-            >
-              Explore Features
-            </a>
-          </div>
-        </div>
-
-        {/* Scroll Indicator */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
-          <ChevronDown size={24} className="text-[#71717a]" />
-        </div>
-      </section>
-
-      {/* Stats Section */}
-      <section className="py-16 border-y border-[#1e3a5f] bg-[#0a0a0a]">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            {stats.map((stat, i) => (
-              <div key={i} className="text-center">
-                <div className="font-['Space_Grotesk'] text-4xl md:text-5xl font-bold text-[#22d3ee] mb-2">{stat.value}</div>
-                <div className="text-sm text-[#71717a] uppercase tracking-wider">{stat.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Features Section */}
-      <section id="features" className="py-24">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="text-center mb-16">
-            <span className="text-xs text-[#0ea5e9] uppercase tracking-widest">Capabilities</span>
-            <h2 className="font-['Space_Grotesk'] text-4xl md:text-5xl font-bold mt-4 mb-6">
-              Quantitative Command Center
-            </h2>
-            <p className="text-[#94a3b8] max-w-2xl mx-auto">
-              Everything you need to monitor, analyze, and execute hedge fund strategies from a single unified terminal.
-            </p>
-          </div>
-          
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {features.map((feature, i) => (
-              <div 
-                key={i} 
-                className="group p-6 bg-gradient-to-b from-[#111827] to-[#0a0a0a] border border-[#1e3a5f] rounded-lg hover:border-[#0ea5e9]/50 transition-all hover:-translate-y-1"
-              >
-                <div className="w-12 h-12 bg-[#0ea5e9]/10 rounded-lg flex items-center justify-center mb-4 group-hover:bg-[#0ea5e9]/20 transition-colors">
-                  <feature.icon size={24} className="text-[#22d3ee]" strokeWidth={1.5} />
-                </div>
-                <h3 className="font-['Space_Grotesk'] text-xl font-semibold mb-3">{feature.title}</h3>
-                <p className="text-[#94a3b8] text-sm leading-relaxed">{feature.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Strategies Section */}
-      <section className="py-24 bg-[#0a0a0a] border-y border-[#1e3a5f]">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div>
-              <span className="text-xs text-[#0ea5e9] uppercase tracking-widest">Investment Strategies</span>
-              <h2 className="font-['Space_Grotesk'] text-4xl font-bold mt-4 mb-6">
-                10 Core Hedge Fund Strategies
-              </h2>
-              <p className="text-[#94a3b8] mb-8 leading-relaxed">
-                Comprehensive coverage of institutional-grade investment strategies, each with AI-powered analysis for current market conditions.
-              </p>
-              <div className="space-y-3">
-                {['Long/Short Equity', 'Global Macro', 'Event-Driven', 'Quant Multi-Strategy', 'AI & Machine Learning'].map((strategy, i) => (
-                  <div key={i} className="flex items-center gap-3">
-                    <CheckCircle size={16} className="text-[#22d3ee]" />
-                    <span className="text-[#ededed]">{strategy}</span>
-                  </div>
-                ))}
-                <div className="text-sm text-[#71717a] mt-4">+ 5 more strategies</div>
-              </div>
-            </div>
-            <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-[#0ea5e9]/20 to-[#22d3ee]/20 rounded-lg blur-xl" />
-              <div className="relative bg-[#111827] border border-[#1e3a5f] rounded-lg p-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="w-3 h-3 rounded-full bg-[#ef4444]" />
-                  <div className="w-3 h-3 rounded-full bg-[#f59e0b]" />
-                  <div className="w-3 h-3 rounded-full bg-[#22d3ee]" />
-                </div>
-                <div className="font-mono text-sm space-y-2 text-[#94a3b8]">
-                  <div><span className="text-[#22d3ee]">strategy</span>.analyze(<span className="text-[#f59e0b]">"Global Macro"</span>)</div>
-                  <div><span className="text-[#71717a]">// AI Analysis Processing...</span></div>
-                  <div><span className="text-[#22d3ee]">→</span> Risk Level: <span className="text-[#f59e0b]">MEDIUM-HIGH</span></div>
-                  <div><span className="text-[#22d3ee]">→</span> Expected Return: <span className="text-[#00e676]">10-20%</span></div>
-                  <div><span className="text-[#22d3ee]">→</span> Correlation: <span className="text-[#94a3b8]">0.1-0.3</span></div>
-                  <div><span className="text-[#22d3ee]">→</span> Recommendation: <span className="text-[#00e676]">FAVORABLE</span></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-24">
-        <div className="max-w-4xl mx-auto px-6 text-center">
-          <h2 className="font-['Space_Grotesk'] text-4xl md:text-5xl font-bold mb-6">
-            Ready to Access the Terminal?
-          </h2>
-          <p className="text-[#94a3b8] mb-10 text-lg">
-            Authorized personnel only. Contact for access credentials.
-          </p>
-          <a 
-            href="/login" 
-            className="inline-flex items-center gap-2 px-10 py-4 bg-gradient-to-r from-[#0ea5e9] to-[#22d3ee] text-white font-semibold rounded-sm uppercase tracking-wider hover:opacity-90 transition-all hover:scale-105"
-          >
-            <Lock size={18} />
-            Terminal Login
-          </a>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="py-12 border-t border-[#1e3a5f] bg-[#0a0a0a]">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-[#0ea5e9] to-[#22d3ee] rounded-sm flex items-center justify-center">
-                <span className="text-sm font-bold text-white">SQH</span>
-              </div>
-              <span className="font-['Space_Grotesk'] font-semibold">SQH-Wellington's Terminal</span>
-            </div>
-            <div className="text-sm text-[#71717a]">
-              © {new Date().getFullYear()} SQH-Wellington. Quantitative Control Plane.
-            </div>
-          </div>
-        </div>
-      </footer>
-    </div>
-  );
-};
-
 // ============== SIDEBAR ==============
-const Sidebar = ({ collapsed, setCollapsed, viewMode, setViewMode, userEmail, onLogout }) => {
+const Sidebar = ({ collapsed, setCollapsed, viewMode, setViewMode }) => {
   const location = useLocation();
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
   
   const navItems = [
     { path: "/dashboard", icon: Home, label: "Hub" },
@@ -616,14 +59,6 @@ const Sidebar = ({ collapsed, setCollapsed, viewMode, setViewMode, userEmail, on
         <div className="sidebar-logo">QF</div>
         {!collapsed && <span className="sidebar-title">QuantFlow</span>}
       </div>
-      
-      {/* User Info */}
-      {!collapsed && (
-        <div className="px-3 py-2 border-b border-[#27272a]">
-          <div className="text-[10px] uppercase text-[#71717a]">Logged in as</div>
-          <div className="text-xs text-[#ededed] truncate font-mono">{userEmail}</div>
-        </div>
-      )}
       
       <nav className="sidebar-nav">
         {navItems.map(item => (
@@ -698,22 +133,6 @@ const Sidebar = ({ collapsed, setCollapsed, viewMode, setViewMode, userEmail, on
                 </button>
               </div>
             </div>
-            <button
-              onClick={() => setShowPasswordModal(true)}
-              className="nav-item w-full justify-start text-xs text-[#a1a1aa] hover:bg-[#3b82f6]/10"
-              data-testid="change-password-btn"
-            >
-              <Key size={14} />
-              <span>Change Password</span>
-            </button>
-            <button
-              onClick={onLogout}
-              className="nav-item w-full justify-start text-xs text-[#ef4444] hover:bg-[#ef4444]/10"
-              data-testid="logout-btn"
-            >
-              <LogOut size={14} />
-              <span>Logout</span>
-            </button>
           </>
         )}
         <button
@@ -724,9 +143,6 @@ const Sidebar = ({ collapsed, setCollapsed, viewMode, setViewMode, userEmail, on
           {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
         </button>
       </div>
-      
-      {/* Password Change Modal */}
-      <PasswordChangeModal isOpen={showPasswordModal} onClose={() => setShowPasswordModal(false)} />
     </aside>
   );
 };
@@ -4494,7 +3910,7 @@ const StatRow = ({ label, value }) => (
 );
 
 // ============== PROFILE PAGE ==============
-const ProfilePage = ({ userEmail }) => {
+const ProfilePage = () => {
   return (
     <div className="p-6" data-testid="profile-page">
       <div className="page-header">
@@ -4517,19 +3933,19 @@ const ProfilePage = ({ userEmail }) => {
                 <Users size={28} className="text-white" />
               </div>
               <div className="flex-1">
-                <div className="text-sm text-[#71717a] uppercase tracking-wider mb-1">Email Address</div>
-                <div className="font-mono text-[#ededed] text-lg">{userEmail}</div>
+                <div className="text-sm text-[#71717a] uppercase tracking-wider mb-1">Terminal</div>
+                <div className="font-mono text-[#ededed] text-lg">QuantFlow Private Instance</div>
                 <div className="text-xs text-[#71717a] mt-2">Account Owner</div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Security Card */}
+        {/* Access Card */}
         <div className="quant-card">
           <div className="quant-card-header flex items-center gap-2">
             <Shield size={14} />
-            <span>SECURITY</span>
+            <span>ACCESS</span>
           </div>
           <div className="p-6 space-y-4">
             <div className="flex items-center justify-between p-4 bg-[#0a0a0a] border border-[#27272a] rounded-sm">
@@ -4538,27 +3954,14 @@ const ProfilePage = ({ userEmail }) => {
                   <Key size={18} className="text-[#3b82f6]" />
                 </div>
                 <div>
-                  <div className="text-sm font-medium text-[#ededed]">Password</div>
-                  <div className="text-xs text-[#71717a]">Last changed recently</div>
+                  <div className="text-sm font-medium text-[#ededed]">Open Access</div>
+                  <div className="text-xs text-[#71717a]">No login required — terminal opens directly</div>
                 </div>
               </div>
               <div className="text-xs text-[#00e676] flex items-center gap-1">
                 <div className="w-2 h-2 bg-[#00e676] rounded-full"></div>
-                Configured
+                Enabled
               </div>
-            </div>
-
-            <div className="flex items-center justify-between p-4 bg-[#0a0a0a] border border-[#27272a] rounded-sm">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-[#3b82f6]/10 rounded flex items-center justify-center">
-                  <Shield size={18} className="text-[#3b82f6]" />
-                </div>
-                <div>
-                  <div className="text-sm font-medium text-[#ededed]">Two-Factor Authentication</div>
-                  <div className="text-xs text-[#71717a]">Enhanced security for your account</div>
-                </div>
-              </div>
-              <div className="text-xs text-[#71717a]">Not configured</div>
             </div>
           </div>
         </div>
@@ -4572,10 +3975,6 @@ const ProfilePage = ({ userEmail }) => {
           <div className="p-6">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <div className="text-xs text-[#71717a] mb-1">Token Expiry</div>
-                <div className="text-sm text-[#ededed]">7 days</div>
-              </div>
-              <div>
                 <div className="text-xs text-[#71717a] mb-1">Account Type</div>
                 <div className="text-sm text-[#ededed]">Owner</div>
               </div>
@@ -4585,35 +3984,7 @@ const ProfilePage = ({ userEmail }) => {
               </div>
               <div>
                 <div className="text-xs text-[#71717a] mb-1">Authentication</div>
-                <div className="text-sm text-[#ededed]">JWT-based</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Credentials Reference (for your records) */}
-        <div className="quant-card border-[#3b82f6]/30">
-          <div className="quant-card-header flex items-center gap-2 bg-[#3b82f6]/10">
-            <Database size={14} />
-            <span>ACCOUNT CREDENTIALS (FOR YOUR RECORDS)</span>
-          </div>
-          <div className="p-6 space-y-3">
-            <div>
-              <div className="text-xs text-[#71717a] uppercase tracking-wider mb-2">Username / Email</div>
-              <div className="p-3 bg-[#0a0a0a] border border-[#27272a] rounded-sm">
-                <code className="text-sm text-[#22d3ee] font-mono">barrientoswellingtonantonio@gmail.com</code>
-              </div>
-            </div>
-            <div>
-              <div className="text-xs text-[#71717a] uppercase tracking-wider mb-2">Password</div>
-              <div className="p-3 bg-[#0a0a0a] border border-[#27272a] rounded-sm">
-                <code className="text-sm text-[#a1a1aa] font-mono">01230143NYSE@</code>
-              </div>
-            </div>
-            <div className="flex items-start gap-2 p-3 bg-[#3b82f6]/5 border border-[#3b82f6]/20 rounded-sm mt-4">
-              <Shield size={14} className="text-[#3b82f6] mt-0.5" />
-              <div className="text-xs text-[#a1a1aa]">
-                Keep these credentials secure. You can change your password anytime using the "Change Password" option in the sidebar.
+                <div className="text-sm text-[#ededed]">None (Open Access)</div>
               </div>
             </div>
           </div>
@@ -4625,32 +3996,9 @@ const ProfilePage = ({ userEmail }) => {
 
 // ============== MAIN APP ==============
 function App() {
-  const { isAuthenticated, loading, userEmail, login, logout } = useAuth();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [viewMode, setViewMode] = useState('modern'); // 'modern', 'wellington', or 'nautical'
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#050505] flex items-center justify-center">
-        <RefreshCw className="animate-spin text-[#3b82f6]" size={32} />
-      </div>
-    );
-  }
-
-  // Unauthenticated users see landing page and login page
-  if (!isAuthenticated) {
-    return (
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/login" element={<LoginPage onLogin={login} />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
-    );
-  }
-
-  // Authenticated users see the full dashboard
   const modeClass = viewMode === 'wellington' ? 'wellington-mode' : viewMode === 'nautical' ? 'nautical-mode' : '';
 
   return (
@@ -4661,8 +4009,6 @@ function App() {
           setCollapsed={setSidebarCollapsed} 
           viewMode={viewMode}
           setViewMode={setViewMode}
-          userEmail={userEmail}
-          onLogout={logout}
         />
         <main className={`main-content ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
           <Routes>
@@ -4679,7 +4025,7 @@ function App() {
             <Route path="/research" element={<ResearchQueue viewMode={viewMode} />} />
             <Route path="/approvals" element={<Approvals viewMode={viewMode} />} />
             <Route path="/health" element={<SystemHealth viewMode={viewMode} />} />
-            <Route path="/profile" element={<ProfilePage userEmail={userEmail} />} />
+            <Route path="/profile" element={<ProfilePage />} />
             <Route path="/automation-hub" element={<AutomationHubPage viewMode={viewMode} />} />
             <Route path="/funds-paper-trading" element={<PaperTradingPage viewMode={viewMode} />} />
             <Route path="/automation-v1" element={<AutomationV1 viewMode={viewMode} />} />

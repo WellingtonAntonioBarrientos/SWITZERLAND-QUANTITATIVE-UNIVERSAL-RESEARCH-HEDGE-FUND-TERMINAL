@@ -1,5 +1,4 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, File, Form, Query
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -13,8 +12,6 @@ from datetime import datetime, timezone, timedelta
 import random
 import base64
 from emergentintegrations.llm.chat import LlmChat, UserMessage
-import hashlib
-import jwt
 import yfinance as yf
 import pandas as pd
 from openclaw_service import OpenclawTradingAnalyzer
@@ -36,16 +33,12 @@ client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
 # Auth Configuration
-SECRET_KEY = os.environ.get('JWT_SECRET', 'quantflow-private-dashboard-secret-key-2026')
+# Internal account key (preserves existing portfolio data keyed by this id)
 OWNER_EMAIL = "barrientoswellingtonantonio@gmail.com"
-# Password: 01230143NYSE1@
-OWNER_PASSWORD_HASH = os.environ.get('OWNER_PASSWORD_HASH', 'eb335aed7243045c98a4c3b649a88d19f16509a30e71c9cdd85ddce5aa686c26')
 
 # Initialize Openclaw AI Trading Analyzer
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', 'sk-emergent-fAc13EfFcA994F79cC')
 openclaw_analyzer = OpenclawTradingAnalyzer(api_key=EMERGENT_LLM_KEY)
-
-security = HTTPBearer(auto_error=False)
 
 # Create the main app
 app = FastAPI(title="QuantFlow Terminal API")
@@ -53,89 +46,11 @@ app = FastAPI(title="QuantFlow Terminal API")
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
-# ============== AUTH MODELS & FUNCTIONS ==============
+# ============== ACCESS (open, no authentication) ==============
 
-class LoginRequest(BaseModel):
-    email: str
-    password: str
-
-class LoginResponse(BaseModel):
-    token: str
-    email: str
-    message: str
-
-class ChangePasswordRequest(BaseModel):
-    current_password: str
-    new_password: str
-
-def verify_password(password: str) -> bool:
-    return hashlib.sha256(password.encode()).hexdigest() == OWNER_PASSWORD_HASH
-
-def create_token(email: str) -> str:
-    payload = {
-        "email": email,
-        "exp": datetime.now(timezone.utc) + timedelta(days=7),
-        "iat": datetime.now(timezone.utc)
-    }
-    return jwt.encode(payload, SECRET_KEY, algorithm="HS256")
-
-def verify_token(token: str) -> Optional[str]:
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-        return payload.get("email")
-    except jwt.ExpiredSignatureError:
-        return None
-    except jwt.InvalidTokenError:
-        return None
-
-async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
-    if not credentials:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    
-    email = verify_token(credentials.credentials)
-    if not email or email != OWNER_EMAIL:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
-    
-    return email
-
-# Dependency for endpoints that need user dict with email
-async def verify_token_dep(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
-    """Verify JWT token and return user dict"""
-    if not credentials:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    
-    email = verify_token(credentials.credentials)
-    if not email or email != OWNER_EMAIL:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
-    
-    return {"email": email}
-
-# ============== AUTH ENDPOINTS ==============
-
-@api_router.post("/auth/login", response_model=LoginResponse)
-async def login(request: LoginRequest):
-    if request.email.lower() != OWNER_EMAIL.lower():
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-    
-    if not verify_password(request.password):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-    
-    token = create_token(request.email)
-    return LoginResponse(token=token, email=request.email, message="Login successful")
-
-@api_router.get("/auth/verify")
-async def verify_auth(current_user: str = Depends(get_current_user)):
-    return {"authenticated": True, "email": current_user}
-
-@api_router.post("/auth/change-password")
-async def change_password(request: ChangePasswordRequest, current_user: str = Depends(get_current_user)):
-    global OWNER_PASSWORD_HASH
-    
-    if not verify_password(request.current_password):
-        raise HTTPException(status_code=401, detail="Current password is incorrect")
-    
-    OWNER_PASSWORD_HASH = hashlib.sha256(request.new_password.encode()).hexdigest()
-    return {"message": "Password changed successfully"}
+async def verify_token_dep() -> dict:
+    """Open access: always resolves to the owner account"""
+    return {"email": OWNER_EMAIL}
 
 # ============== MODELS ==============
 
