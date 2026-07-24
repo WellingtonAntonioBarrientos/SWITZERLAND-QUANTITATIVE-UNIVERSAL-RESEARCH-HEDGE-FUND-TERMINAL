@@ -1,133 +1,46 @@
-# QuantFlow Terminal - Product Requirements Document
+# Switzerland Quantitative Universal Hedge Fund Terminal (SQUHF) — PRD
 
 ## Project Overview
-A **private** hedge fund quantitative trading platform with 14+ modules for market analysis, strategy management, SEC filings analysis, and enterprise automation. Password-protected for single-user access.
+A **private, open-access** hedge fund quantitative trading platform with 14+ modules for market analysis, strategy management, SEC filings analysis, paper trading, and AI-powered analysis.
+Branding: **Switzerland Quantitative Universal Hedge Fund Terminal by Wellington Antonio Barrientos** (logo "SQ", short name "SQUHF"). "Made with Emergent" badge removed (Jul 2026).
 
 ## Owner
-- **Email**: barrientoswellingtonantonio@gmail.com
-- **Default Password**: quantflow2026 (can be changed in app)
+- Wellington Antonio Barrientos
+- Internal data key (NOT a credential): `barrientoswellingtonantonio@gmail.com` — MongoDB `paper_accounts.user_id`. Do not change (preserves 150-order portfolio).
 
 ## Original Problem Statement
-Build a private quant financial application with authentication, quant dashboard, macro regime, world intel map, terminal, research queue, approvals, system health, hedge fund automation, 10 hedge fund strategies, 13F SEC filings with AI retrieval, and global financial heatmap.
+Build a private quant financial application with quant dashboard, macro regime, world intel map, terminal, research queue, approvals, system health, hedge fund automation, 10 hedge fund strategies, 13F SEC filings with AI retrieval, global financial heatmap, thinkorswim-style Paper Trading ($100M), Funds Paper Trading 1.0, and Wellington AI (multimodal Claude chat with smart mode routing).
 
 ## Authentication
-- Simple password protection (single user)
-- JWT token-based sessions (7-day expiry)
-- Login page shows "Private Dashboard" message
-- Logout available in sidebar
+- **REMOVED (Dec 2025 fork)** at user request. App opens directly to /dashboard. All `/api/*` endpoints are open (verify_token_dep returns owner unconditionally). Old /api/auth/* endpoints deleted.
 
-## User Personas
-1. **Quantitative Traders** - Need real-time data, charts, and quick command access
-2. **Hedge Fund Managers** - Require strategy oversight, approvals, and risk monitoring
-3. **Financial Analysts** - Use research queue and AI analysis for insights
-4. **Operations Staff** - Monitor system health and process approvals
-5. **Compliance Officers** - Use automation hub for regulatory monitoring
+## Architecture
+- Frontend: React (App.js ~4,085 lines — refactor pending P0), TailwindCSS, react-globe.gl, react-plotly.js (Surface3D.jsx)
+- Backend: FastAPI + MongoDB (paper_accounts persisted), yfinance market data
+- AI: Claude via emergentintegrations (Emergent LLM key) — wellington_orchestrator.py routes standard/advanced modes with per-request model selection
 
-## Core Requirements (Static)
-- Dark terminal aesthetic (Bloomberg-style toggle available)
-- High information density
-- Real-time data updates
-- AI-powered analysis (Claude Sonnet 4.5)
-- No authentication for MVP
+## Implemented (chronological highlights)
+- Core 14-module dashboard, 13F filings, paper trading + funds paper trading (150 orders, 16 positions, ~$100.3M)
+- Wellington AI orchestrator (smart mode auto-detection: standard/code_gen/deep_analysis/research/strategy_builder/debate)
+- Dec 2025 fork:
+  - Auth fully removed (open access)
+  - Claude model picker in Wellington chat: Sonnet 4.6 (default), Opus 4.8, Haiku 4.5, Sonnet 4.5; GET /api/wellington/models; POST /api/wellington/chat accepts `model`, returns `model_used`
+  - Fixed pre-existing crash: Wellington functions were trapped in resetAccount's unclosed catch block
+  - Code review fixes: deleted dead auth files (hooks/useAuth.js, utils/api.js, components/auth/*), console.error → dev-gated logError, 17 list keys index→stable ids, orchestrator process_query split into _handle_* dispatch, eslint exhaustive-deps annotations
+  - Fixed iteration-4 HIGH regression: watchlist key={item.position} (symbols repeat across funds)
+- Jul 2026: Rebranded to SQUHF Terminal (index.html title/meta, sidebar, profile, terminal boot, API title); removed Emergent badge script
 
-## What's Been Implemented (Jan 2026)
+## Known Issues / Notes
+- EMERGENT_LLM_KEY budget EXHAUSTED — Wellington AI live replies return budget-exceeded error until user tops up (Profile → Universal Key → Add Balance)
+- Code-generation Wellington prompts can exceed 60s ingress timeout (worse while budget errors trigger retries) — P2: streaming/background task
+- Non-blocking hydration warning "<span> cannot be child of <option>" from library internals (not our code) — P3
+- Wellington view-mode CSS inconsistencies — P2
 
-### Backend (FastAPI + MongoDB)
-- `/api/dashboard/summary` - Hub metrics
-- `/api/strategies` - 10 hedge fund strategies
-- `/api/strategies/{id}/analyze` - AI strategy analysis
-- `/api/sec/13f` - Top 10 hedge fund 13F filings
-- `/api/sec/13f/{id}/analyze` - AI 13F analysis
-- `/api/market/data` - Mock market data
-- `/api/market/chart/{symbol}` - OHLCV chart data
-- `/api/market/indices` - 16 global indices
-- `/api/market/heatmap` - Regional heatmap data
-- `/api/macro/regime` - Economic regime data
-- `/api/macro/correlation` - Correlation matrix
-- `/api/intel/events` - Global intel events
-- `/api/terminal/execute` - Terminal commands
-- `/api/research/tasks` - Research task CRUD + AI
-- `/api/approvals` - Approval workflow
-- `/api/system/health` - Service health
-- `/api/automation/modules` - 5 automation modules
-- `/api/automation/modules/{id}/analyze` - AI optimization
-- `/api/automation/rules` - V1 rule automation
-- `/api/automation/strategies` - V2 code automation
+## Backlog
+- P0: Refactor App.js into /src/pages/ + /src/components/ (QuantDashboard, PaperTradingPage, SECFilingsPage, WellingtonChat, Sidebar...)
+- P2: Wellington AI streaming responses (also fixes timeout)
+- P3: More 3D visualizations, real-time news feed for World Intel, chart export, watchlist row data-testids
 
-### Frontend (React + Tailwind)
-1. **Hub** - Command center with metrics
-2. **Strategies** - 10 hedge fund strategies with AI analysis
-3. **13F SEC Filings** - Top 10 hedge fund quarterly holdings
-4. **Global Heatmap** - 16 world indices with red/green coding
-5. **Quant Dashboard** - Market data and charts
-6. **Macro Regime** - Economic indicators
-7. **World Intel Map** - Global events
-8. **Terminal** - Command-line interface
-9. **Research Queue** - AI-powered research
-10. **Approvals** - Workflow management
-11. **System Health** - Infrastructure monitoring
-12. **Automation Hub** - 5 enterprise modules
-13. **Automation V1** - Rule builder
-14. **Automation V2** - Code editor
-
-### View Modes
-- **Modern Mode** - Default dark theme
-- **Bloomberg Mode** - Orange/green terminal style
-
-### 10 Hedge Fund Strategies
-1. Long/Short Equity
-2. Global Macro
-3. Event-Driven/Distressed Debt
-4. Quant Multi-Strategy
-5. Credit Risk/Private Credit
-6. Relative Value Arbitrage
-7. AI/ML Trading
-8. Active AMCs
-9. CTAs/Trend Following
-10. Inflation-Hedged Real Assets
-
-### 10 SEC 13F Funds Tracked
-1. Bridgewater Associates ($124.5B)
-2. Renaissance Technologies ($98.2B)
-3. Citadel Advisors ($87.6B)
-4. Two Sigma ($72.4B)
-5. Millennium Management ($65.8B)
-6. D.E. Shaw ($52.1B)
-7. Point72 ($45.2B)
-8. Viking Global ($42.6B)
-9. Elliott Management ($38.9B)
-10. Baupost Group ($28.5B)
-
-### 5 Automation Modules
-1. **Automated Trading & Investment Strategy** - Pattern detection, trade execution
-2. **Research & Data Aggregation** - Real-time data ingestion
-3. **Compliance & Risk Management** - Regulatory monitoring, VaR
-4. **Operational & Middle Office** - NAV, reconciliation, settlements
-5. **Investor Relations & Reporting** - AI chatbots, performance reports
-
-## Prioritized Backlog
-
-### P0 (Critical)
-- [ ] Real market data API integration
-- [ ] WebSocket for real-time updates
-
-### P1 (High Priority)
-- [ ] User authentication
-- [ ] Strategy backtesting engine
-- [ ] Real 13F SEC filing API integration
-
-### P2 (Medium Priority)
-- [ ] Historical performance tracking
-- [ ] Custom alerts and notifications
-- [ ] Export to PDF/Excel
-
-## Technical Architecture
-- **Frontend**: React 19, Tailwind CSS, Recharts
-- **Backend**: FastAPI, Motor (async MongoDB)
-- **Database**: MongoDB
-- **AI**: Claude Sonnet 4.5 via Emergent LLM key
-
-## Notes
-- Market data, indices, and 13F filings are MOCKED
-- AI features use Emergent LLM key
-- No authentication in MVP phase
+## Test Reports
+- /app/test_reports/iteration_4.json (regression suite, 94% backend)
+- /app/test_reports/iteration_5.json (branding + badge + watchlist key fix — all pass)
