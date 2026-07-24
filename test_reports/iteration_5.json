@@ -1,0 +1,56 @@
+{
+  "summary": "Iteration 5 verified: 'Made with Emergent' badge removed, full rebranding to 'Switzerland Quantitative Universal Hedge Fund Terminal (SQUHF) by Wellington Antonio Barrientos', and the HIGH-priority iteration-4 regression (React duplicate-key errors on Paper Trading watchlist) is FIXED. Backend 10/10 passed (1 skipped), Frontend all critical flows pass with 0 duplicate-key errors and 0 blocking errors.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Any page with a native <select> deep in the tree (via Routes/Sidebar)", "issues": ["React hydration warning: 'In HTML, <span> cannot be a child of <option>'. Not a blocking bug and unrelated to this iteration's branding/watchlist changes. Likely a shadcn/Radix Select or a stray <span> inside a native <option> in one of the Automation/Approvals/Alerts modals. Recommend a follow-up sweep."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration5_branding.py",
+    "/app/test_reports/pytest/pytest_results_iteration5.xml"
+  ],
+  "action_items": [
+    "None blocking — iteration 5 goals fully verified.",
+    "Optional follow-up: locate the source of the '<span> in <option>' hydration warning (search for any Select/option that renders a <span> child) and clean it up."
+  ],
+  "critical_code_review_comments": [
+    "App.js is ~4085 lines — well over the 700-line guideline. Strongly recommend splitting into route-level modules (PaperTrading, MacroRegime, Terminal, Profile, WellingtonAI, Sidebar) to improve maintainability and reduce re-render surface.",
+    "Watchlist fix is correct: key={item.position} is guaranteed unique 1..50, whereas key={item.symbol} was duplicated (e.g., MSFT appears in 9 hedge-fund rows). Confirmed 0 duplicate-key errors in console during full watchlist render.",
+    "Macro Regime keys changed to indicator.name and asset — verified with 0 console errors on /macro."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration5_branding.py (new)",
+    "/app/test_reports/pytest/pytest_results_iteration5.xml (new)"
+  ],
+  "success_rate": {"backend": "100% (10/10 passed, 1 skipped by design)", "frontend": "100% for tested flows"},
+  "test_credentials": "N/A — app is open access (no login).",
+  "seed_data_creation": "None. Did NOT call POST /api/paper-trading/reset per instructions.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration 5 scope: (1) badge removal via public/index.html (emergent-main.js script tag removed; PostHog script remains and is unrelated to the Emergent badge), (2) rebrand to SQUHF, (3) watchlist duplicate-key regression fix (key={item.position}). All verified. Verified endpoints and their real paths: /api/, /api/market/data, /api/market/indices, /api/market/heatmap, /api/macro/regime, /api/macro/correlation, /api/intel/events, /api/paper-trading/account, /api/paper-trading/watchlist, /api/wellington/models. Note that many endpoint names differ from typical conventions (e.g., /api/market/data not /market/status; /api/intel/events not /intel/news; there is NO /api/paper-trading/positions). Wellington AI live-LLM chat still fails with budget-exceeded (expected). Sidebar has data-testid=sidebar and toggle=sidebar-toggle. Brand testids: brand-logo=SQ, brand-title=SQUHF, brand-fullname, brand-owner. Watchlist rows do NOT yet have data-testid — E1 could add data-testid=watchlist-item-{position} for cleaner E2E targeting in future iterations. There is 1 iframe on the dashboard (likely PostHog session-recording) — not the Emergent badge.",
+  "rca of the issue": {
+    "prior_iteration_bug": "In iteration 4, /paper-trading watchlist rendered 50 items but used key={item.symbol}; because the seed generates top-5 stocks from 10 hedge funds, symbols like MSFT repeated up to 8-9 times, generating 136 React duplicate-key console errors.",
+    "reproduction_before_fix": "Navigate to /paper-trading and open dev console — errors 'Encountered two children with the same key' appear per repeated symbol per re-render.",
+    "fix_applied": "App.js line 1251 changed to key={item.position}. item.position is unique in the range 1..50 across all rendered rows.",
+    "verification": "Playwright browser test scrolled all 50 watchlist rows (positions #1..#50) and found 0 React duplicate-key warnings and 0 console errors during Paper Trading interactions. Clicking MSFT #18 (Two Sigma) correctly selects MSFT in Order Entry (screenshot confirms 'MSFT / Microsoft Corp / $381.58'). Also verified 8 additional MSFT rows exist under different hedge funds (Renaissance, Millennium, D.E. Shaw, Point72, Viking Global, Elliott, Baupost) — all with unique positions."
+  },
+  "verified_features": {
+    "badge_removal": "HTML source contains NO reference to 'assets.emergent.sh/scripts/emergent-main.js' and 'Made with Emergent' text count is 0 across /dashboard, /paper-trading.",
+    "browser_tab_title": "'Switzerland Quantitative Universal Hedge Fund Terminal' — verified.",
+    "sidebar_branding": "brand-logo='SQ', brand-title='SQUHF', brand-fullname='Switzerland Quantitative Universal Hedge Fund Terminal', brand-owner='by Wellington Antonio Barrientos'. Old 'QuantFlow' branding not present anywhere.",
+    "profile_page": "Shows 'Switzerland Quantitative Universal Hedge Fund Terminal' and 'by Wellington Antonio Barrientos · Account Owner'.",
+    "terminal_page": "Boot line 'SQUHF Terminal v1.0.0 — Switzerland Quantitative Universal Hedge Fund Terminal' present.",
+    "backend_root": "GET /api/ returns {'message': 'Switzerland Quantitative Universal Hedge Fund Terminal API', 'version': '1.0.0'}.",
+    "watchlist_regression": "50 unique rows rendered (positions 1..50), 0 duplicate-key errors, click on duplicated MSFT correctly selects stock in Order Entry.",
+    "macro_regime": "/macro renders indicators (Fed Funds Rate, CPI YoY, GDP Growth, Unemployment, 10Y Treasury, VIX, DXY, Oil WTI) and correlation matrix (SPY/TLT/GLD/DXY/VIX/BTC) with 0 console errors.",
+    "sidebar_collapse": "Toggle changes class 'sidebar' <-> 'sidebar collapsed' correctly.",
+    "wellington_model_picker": "Panel opens, wellington-model-select present with 4 Claude options (Sonnet 4.6, Opus 4.8, Haiku 4.5, Sonnet 4.5).",
+    "paper_trading_smoke": "Account Value $100.29M, Cash $96.78M, Positions (16) — all render correctly."
+  }
+}

@@ -41,7 +41,7 @@ EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', 'sk-emergent-fAc13EfFcA994
 openclaw_analyzer = OpenclawTradingAnalyzer(api_key=EMERGENT_LLM_KEY)
 
 # Create the main app
-app = FastAPI(title="QuantFlow Terminal API")
+app = FastAPI(title="Switzerland Quantitative Universal Hedge Fund Terminal API")
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
@@ -659,7 +659,7 @@ def generate_mock_system_health():
 
 @api_router.get("/")
 async def root():
-    return {"message": "QuantFlow Terminal API", "version": "1.0.0"}
+    return {"message": "Switzerland Quantitative Universal Hedge Fund Terminal API", "version": "1.0.0"}
 
 # Market Data Endpoints
 @api_router.get("/market/data", response_model=List[MarketData])

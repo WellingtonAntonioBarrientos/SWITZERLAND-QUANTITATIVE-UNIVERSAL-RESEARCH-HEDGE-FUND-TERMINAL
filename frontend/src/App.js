@@ -61,9 +61,19 @@ const Sidebar = ({ collapsed, setCollapsed, viewMode, setViewMode }) => {
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`} data-testid="sidebar">
       <div className="sidebar-header">
-        <div className="sidebar-logo">QF</div>
-        {!collapsed && <span className="sidebar-title">QuantFlow</span>}
+        <div className="sidebar-logo" data-testid="brand-logo">SQ</div>
+        {!collapsed && (
+          <div className="min-w-0">
+            <span className="sidebar-title block" data-testid="brand-title">SQUHF</span>
+            <span className="block text-[8px] leading-tight text-[#71717a] uppercase tracking-wider" data-testid="brand-fullname">Switzerland Quantitative Universal Hedge Fund Terminal</span>
+          </div>
+        )}
       </div>
+      {!collapsed && (
+        <div className="px-3 py-1.5 border-b border-[#27272a] text-[9px] text-[#71717a] italic" data-testid="brand-owner">
+          by Wellington Antonio Barrientos
+        </div>
+      )}
       
       <nav className="sidebar-nav">
         {navItems.map(item => (
@@ -1238,7 +1248,7 @@ const PaperTradingPage = ({ viewMode }) => {
             <div className="max-h-[700px] overflow-y-auto">
               {watchlist.map((item, idx) => (
                 <div
-                  key={item.symbol}
+                  key={item.position}
                   onClick={() => setSelectedStock(item)}
                   className={`p-2 border-b border-[#27272a] cursor-pointer transition-colors ${
                     selectedStock?.symbol === item.symbol ? 'bg-[#3b82f6]/20' : 'hover:bg-[#18181b]'
@@ -2752,7 +2762,7 @@ const MacroRegime = ({ viewMode }) => {
             </thead>
             <tbody>
               {regimeData?.indicators?.map((ind, i) => (
-                <tr key={i}>
+                <tr key={ind.name}>
                   <td>{ind.name}</td>
                   <td>{ind.value.toFixed(2)}</td>
                   <td className="text-[#71717a]">{ind.previous.toFixed(2)}</td>
@@ -2787,13 +2797,13 @@ const MacroRegime = ({ viewMode }) => {
                   <tr>
                     <th></th>
                     {correlation?.assets?.map((asset, i) => (
-                      <th key={i} className="text-center">{asset}</th>
+                      <th key={asset} className="text-center">{asset}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {correlation?.assets?.map((asset, i) => (
-                    <tr key={i}>
+                    <tr key={asset}>
                       <td className="font-medium">{asset}</td>
                       {correlation?.assets?.map((other, j) => {
                         const val = correlation?.matrix?.[asset]?.[other];
@@ -3081,7 +3091,7 @@ const WorldIntel = ({ viewMode }) => {
 // ============== TERMINAL ==============
 const Terminal = () => {
   const [history, setHistory] = useState([
-    { type: 'system', content: 'QuantFlow Terminal v1.0.0' },
+    { type: 'system', content: 'SQUHF Terminal v1.0.0 — Switzerland Quantitative Universal Hedge Fund Terminal' },
     { type: 'system', content: 'Type "help" for available commands.' },
   ]);
   const [input, setInput] = useState('');
@@ -3967,9 +3977,9 @@ const ProfilePage = () => {
                 <Users size={28} className="text-white" />
               </div>
               <div className="flex-1">
-                <div className="text-sm text-[#71717a] uppercase tracking-wider mb-1">Terminal</div>
-                <div className="font-mono text-[#ededed] text-lg">QuantFlow Private Instance</div>
-                <div className="text-xs text-[#71717a] mt-2">Account Owner</div>
+                <div className="text-sm text-[#71717a] uppercase tracking-wider mb-1">Fund</div>
+                <div className="font-mono text-[#ededed] text-lg">Switzerland Quantitative Universal Hedge Fund Terminal</div>
+                <div className="text-xs text-[#71717a] mt-2">by Wellington Antonio Barrientos · Account Owner</div>
               </div>
             </div>
           </div>
