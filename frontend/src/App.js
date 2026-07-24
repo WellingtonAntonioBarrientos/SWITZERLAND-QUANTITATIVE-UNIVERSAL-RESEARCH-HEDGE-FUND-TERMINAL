@@ -23,6 +23,11 @@ import { Surface3DChart, CorrelationMatrix3D, PriceHistory3D, MarketIndices3D } 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
+// Dev-only error logger (silenced in production builds)
+const logError = (...args) => {
+  if (process.env.NODE_ENV === 'development') console.error(...args);
+};
+
 // ============== SIDEBAR ==============
 const Sidebar = ({ collapsed, setCollapsed, viewMode, setViewMode }) => {
   const location = useLocation();
@@ -158,7 +163,7 @@ const HubPage = () => {
         const res = await axios.get(`${API}/dashboard/summary`);
         setSummary(res.data);
       } catch (e) {
-        console.error("Error fetching summary:", e);
+        logError("Error fetching summary:", e);
       } finally {
         setLoading(false);
       }
@@ -356,7 +361,7 @@ const CompositeStrategyCard = ({ strategy }) => {
         {/* Key Factors */}
         <div className="flex flex-wrap gap-2 mt-4">
           {strategy.key_factors.map((factor, i) => (
-            <span key={i} className="text-[10px] px-2 py-1 bg-[#3b82f6]/10 text-[#3b82f6] rounded border border-[#3b82f6]/20">
+            <span key={factor} className="text-[10px] px-2 py-1 bg-[#3b82f6]/10 text-[#3b82f6] rounded border border-[#3b82f6]/20">
               {factor}
             </span>
           ))}
@@ -580,6 +585,7 @@ const PaperTradingPage = ({ viewMode }) => {
       fetchWatchlist();
     }, 30000); // Auto-refresh every 30 seconds
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only: fetchers are stable, interval handles refresh
   }, []);
 
   const fetchAccountData = async () => {
@@ -587,7 +593,7 @@ const PaperTradingPage = ({ viewMode }) => {
       const res = await axios.get(`${API}/paper-trading/account`);
       setAccount(res.data);
     } catch (e) {
-      console.error("Error fetching account:", e);
+      logError("Error fetching account:", e);
     } finally {
       setLoading(false);
     }
@@ -598,7 +604,7 @@ const PaperTradingPage = ({ viewMode }) => {
       const res = await axios.get(`${API}/paper-trading/watchlist`);
       setWatchlist(res.data);
     } catch (e) {
-      console.error("Error fetching watchlist:", e);
+      logError("Error fetching watchlist:", e);
     }
   };
 
@@ -989,7 +995,7 @@ const PaperTradingPage = ({ viewMode }) => {
                 {wellingtonAnalysis.recommendations && wellingtonAnalysis.recommendations.length > 0 ? (
                   <div className="space-y-2">
                     {wellingtonAnalysis.recommendations.slice(0, 3).map((rec, idx) => (
-                      <div key={idx} className="p-2 bg-[#0a0a0a] rounded border border-[#27272a]">
+                      <div key={rec.symbol || idx} className="p-2 bg-[#0a0a0a] rounded border border-[#27272a]">
                         <div className="flex justify-between items-center mb-1">
                           <span className="font-mono font-bold text-[#3b82f6]">{rec.symbol}</span>
                           <div className="flex gap-2 items-center">
@@ -1232,7 +1238,7 @@ const PaperTradingPage = ({ viewMode }) => {
             <div className="max-h-[700px] overflow-y-auto">
               {watchlist.map((item, idx) => (
                 <div
-                  key={idx}
+                  key={item.symbol}
                   onClick={() => setSelectedStock(item)}
                   className={`p-2 border-b border-[#27272a] cursor-pointer transition-colors ${
                     selectedStock?.symbol === item.symbol ? 'bg-[#3b82f6]/20' : 'hover:bg-[#18181b]'
@@ -1406,7 +1412,7 @@ const PaperTradingPage = ({ viewMode }) => {
                   </thead>
                   <tbody>
                     {account.positions.map((pos, idx) => (
-                      <tr key={idx}>
+                      <tr key={pos.symbol}>
                         <td className="font-mono font-bold text-[#3b82f6]">{pos.symbol}</td>
                         <td className="text-right font-mono">{pos.quantity}</td>
                         <td className="text-right font-mono text-xs">${pos.avg_cost.toFixed(2)}</td>
@@ -1434,7 +1440,7 @@ const PaperTradingPage = ({ viewMode }) => {
               {account?.order_history && account.order_history.length > 0 ? (
                 <div className="p-2">
                   {account.order_history.slice(-10).reverse().map((order, idx) => (
-                    <div key={idx} className="p-2 border-b border-[#27272a] text-xs">
+                    <div key={order.order_id || idx} className="p-2 border-b border-[#27272a] text-xs">
                       <div className="flex justify-between items-start mb-1">
                         <span className="font-mono font-bold text-[#3b82f6]">{order.symbol}</span>
                         <span className={`px-2 py-0.5 rounded text-[9px] ${
@@ -1479,7 +1485,7 @@ const StrategiesPage = () => {
         const res = await axios.get(`${API}/strategies`);
         setStrategies(res.data);
       } catch (e) {
-        console.error("Error fetching strategies:", e);
+        logError("Error fetching strategies:", e);
       } finally {
         setLoading(false);
       }
@@ -1495,7 +1501,7 @@ const StrategiesPage = () => {
       const res = await axios.post(`${API}/strategies/${strategyId}/analyze`);
       setAnalysis(prev => ({ ...prev, [strategyId]: res.data.analysis }));
     } catch (e) {
-      console.error("Error analyzing strategy:", e);
+      logError("Error analyzing strategy:", e);
     } finally {
       setAnalyzing(null);
     }
@@ -1611,7 +1617,7 @@ const StrategiesPage = () => {
                 {/* Key Factors */}
                 <div className="flex flex-wrap gap-2 mb-4">
                   {strategy.key_factors.map((factor, i) => (
-                    <span key={i} className="text-[10px] px-2 py-1 bg-[#27272a] text-[#a1a1aa] rounded">
+                    <span key={factor} className="text-[10px] px-2 py-1 bg-[#27272a] text-[#a1a1aa] rounded">
                       {factor}
                     </span>
                   ))}
@@ -1680,7 +1686,7 @@ const StrategiesPage = () => {
               { label: 'Low Correlation', strategies: strategies.filter(s => s.correlation.includes('0.0') || s.correlation.includes('-')).length, color: '#3b82f6' },
               { label: 'Total Strategies', strategies: strategies.length, color: '#a1a1aa' },
             ].map((item, i) => (
-              <div key={i} className="text-center">
+              <div key={item.label} className="text-center">
                 <div className="font-mono text-2xl font-semibold" style={{ color: item.color }}>{item.strategies}</div>
                 <div className="text-[10px] text-[#71717a] uppercase mt-1">{item.label}</div>
               </div>
@@ -1708,7 +1714,7 @@ const SECFilingsPage = ({ viewMode }) => {
         const res = await axios.get(`${API}/sec/13f`);
         setFilings(res.data);
       } catch (e) {
-        console.error("Error fetching 13F filings:", e);
+        logError("Error fetching 13F filings:", e);
       } finally {
         setLoading(false);
       }
@@ -1722,7 +1728,7 @@ const SECFilingsPage = ({ viewMode }) => {
       const res = await axios.post(`${API}/sec/13f/${fundId}/analyze`);
       setAnalysis(prev => ({ ...prev, [fundId]: res.data.analysis }));
     } catch (e) {
-      console.error("Error analyzing filing:", e);
+      logError("Error analyzing filing:", e);
     } finally {
       setAnalyzing(null);
     }
@@ -1734,7 +1740,7 @@ const SECFilingsPage = ({ viewMode }) => {
       const res = await axios.post(`${API}/sec/13f/analyze-all`);
       setAllFundsAnalysis(res.data.analysis);
     } catch (e) {
-      console.error("Error analyzing all funds:", e);
+      logError("Error analyzing all funds:", e);
     } finally {
       setAnalyzingAll(false);
     }
@@ -1871,7 +1877,7 @@ const SECFilingsPage = ({ viewMode }) => {
                           </thead>
                           <tbody>
                             {selectedFiling.top_holdings.map((h, i) => (
-                              <tr key={i} className="hover:bg-[#18181b]">
+                              <tr key={h.symbol} className="hover:bg-[#18181b]">
                                 <td className="text-[#71717a]">{i + 1}</td>
                                 <td className={`font-medium ${isBloomberg ? 'text-[#00ffff]' : 'text-[#3b82f6]'}`}>{h.symbol}</td>
                                 <td className="text-xs text-[#a1a1aa]">{h.name}</td>
@@ -1893,7 +1899,7 @@ const SECFilingsPage = ({ viewMode }) => {
                       <h4 className="text-xs uppercase text-[#71717a] mb-3">Sector Allocation</h4>
                       <div className="space-y-2">
                         {Object.entries(selectedFiling.sector_allocation).map(([sector, pct], i) => (
-                          <div key={i}>
+                          <div key={sector}>
                             <div className="flex justify-between text-xs mb-1">
                               <span>{sector}</span>
                               <span className="font-mono">{pct}%</span>
@@ -1964,7 +1970,7 @@ const GlobalHeatmapPage = ({ viewMode }) => {
       const res = await axios.get(`${API}/market/indices`);
       setIndices(res.data);
     } catch (e) {
-      console.error("Error fetching indices:", e);
+      logError("Error fetching indices:", e);
     } finally {
       setLoading(false);
     }
@@ -2146,7 +2152,7 @@ const AutomationHubPage = ({ viewMode }) => {
         const res = await axios.get(`${API}/automation/modules`);
         setModules(res.data);
       } catch (e) {
-        console.error("Error fetching automation modules:", e);
+        logError("Error fetching automation modules:", e);
       } finally {
         setLoading(false);
       }
@@ -2162,7 +2168,7 @@ const AutomationHubPage = ({ viewMode }) => {
       const res = await axios.post(`${API}/automation/modules/${moduleId}/analyze`);
       setAnalysis(prev => ({ ...prev, [moduleId]: res.data.analysis }));
     } catch (e) {
-      console.error("Error analyzing module:", e);
+      logError("Error analyzing module:", e);
     } finally {
       setAnalyzing(null);
     }
@@ -2352,7 +2358,7 @@ const QuantDashboard = ({ viewMode }) => {
       setMarketData(marketRes.data);
       setChartData(chartRes.data.data);
     } catch (e) {
-      console.error("Error fetching market data:", e);
+      logError("Error fetching market data:", e);
     } finally {
       setLoading(false);
     }
@@ -2406,7 +2412,7 @@ const QuantDashboard = ({ viewMode }) => {
           <div className="max-h-[600px] overflow-y-auto">
             {marketData.map((asset, i) => (
               <div
-                key={i}
+                key={asset.symbol}
                 onClick={() => setSelectedSymbol(asset.symbol)}
                 className={`p-3 border-b border-[#27272a]/50 cursor-pointer hover:bg-[#3b82f6]/5 ${
                   selectedSymbol === asset.symbol ? 'bg-[#3b82f6]/10 border-l-2 border-l-[#3b82f6]' : ''
@@ -2541,7 +2547,7 @@ const HedgeFundWatchlist = ({ viewMode }) => {
             symbol,
             data: res.data.data.slice(-30) // Last 30 data points
           })).catch(err => {
-            console.error(`Error fetching ${symbol}:`, err);
+            logError(`Error fetching ${symbol}:`, err);
             return { symbol, data: [] };
           })
         );
@@ -2554,7 +2560,7 @@ const HedgeFundWatchlist = ({ viewMode }) => {
         
         setWatchlistData(priceMap);
       } catch (e) {
-        console.error("Error fetching hedge fund watchlist:", e);
+        logError("Error fetching hedge fund watchlist:", e);
       } finally {
         setLoading(false);
       }
@@ -2563,6 +2569,7 @@ const HedgeFundWatchlist = ({ viewMode }) => {
     fetchFundsAndPrices();
     const interval = setInterval(fetchFundsAndPrices, 60000); // Refresh every minute
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only: fetcher defined in effect, interval handles refresh
   }, []);
 
   const isBloomberg = viewMode === 'wellington';
@@ -2596,7 +2603,7 @@ const HedgeFundWatchlist = ({ viewMode }) => {
                   : 0;
 
                 return (
-                  <div key={i} className="border border-[#27272a] rounded p-2 hover:border-[#3b82f6] transition-colors">
+                  <div key={holding.symbol} className="border border-[#27272a] rounded p-2 hover:border-[#3b82f6] transition-colors">
                     <div className="flex justify-between items-start mb-2">
                       <div>
                         <span className={`font-mono text-sm font-bold ${isBloomberg ? 'text-[#00ffff]' : 'text-[#3b82f6]'}`}>
@@ -2663,7 +2670,7 @@ const MacroRegime = ({ viewMode }) => {
         setRegimeData(regimeRes.data);
         setCorrelation(corrRes.data);
       } catch (e) {
-        console.error("Error fetching macro data:", e);
+        logError("Error fetching macro data:", e);
       } finally {
         setLoading(false);
       }
@@ -2829,7 +2836,7 @@ const WorldIntel = ({ viewMode }) => {
         const res = await axios.get(`${API}/intel/events`);
         setEvents(res.data);
       } catch (e) {
-        console.error("Error fetching intel events:", e);
+        logError("Error fetching intel events:", e);
       } finally {
         setLoading(false);
       }
@@ -2848,7 +2855,7 @@ const WorldIntel = ({ viewMode }) => {
         altitude: 1.5
       }, 1000);
     }
-  }, [selectedEvent]);
+  }, [selectedEvent, globeRef]);
 
   const isNautical = viewMode === 'nautical';
   const isWellington = viewMode === 'wellington';
@@ -3181,7 +3188,7 @@ const ResearchQueue = () => {
       const res = await axios.get(`${API}/research/tasks`);
       setTasks(res.data);
     } catch (e) {
-      console.error("Error fetching tasks:", e);
+      logError("Error fetching tasks:", e);
     } finally {
       setLoading(false);
     }
@@ -3200,7 +3207,7 @@ const ResearchQueue = () => {
       setShowCreate(false);
       fetchTasks();
     } catch (e) {
-      console.error("Error creating task:", e);
+      logError("Error creating task:", e);
     }
   };
 
@@ -3210,7 +3217,7 @@ const ResearchQueue = () => {
       await axios.post(`${API}/research/tasks/${taskId}/analyze`);
       fetchTasks();
     } catch (e) {
-      console.error("Error analyzing task:", e);
+      logError("Error analyzing task:", e);
     } finally {
       setAnalyzing(null);
     }
@@ -3221,7 +3228,7 @@ const ResearchQueue = () => {
       await axios.delete(`${API}/research/tasks/${taskId}`);
       fetchTasks();
     } catch (e) {
-      console.error("Error deleting task:", e);
+      logError("Error deleting task:", e);
     }
   };
 
@@ -3337,7 +3344,7 @@ const Approvals = () => {
       const res = await axios.get(`${API}/approvals`);
       setApprovals(res.data);
     } catch (e) {
-      console.error("Error fetching approvals:", e);
+      logError("Error fetching approvals:", e);
     } finally {
       setLoading(false);
     }
@@ -3352,7 +3359,7 @@ const Approvals = () => {
       await axios.post(`${API}/approvals/${id}/action`, { action });
       fetchApprovals();
     } catch (e) {
-      console.error("Error processing approval:", e);
+      logError("Error processing approval:", e);
     }
   };
 
@@ -3449,7 +3456,7 @@ const SystemHealth = () => {
       setHealth(healthRes.data);
       setAlerts(alertsRes.data);
     } catch (e) {
-      console.error("Error fetching health:", e);
+      logError("Error fetching health:", e);
     } finally {
       setLoading(false);
     }
@@ -3517,7 +3524,7 @@ const SystemHealth = () => {
           </thead>
           <tbody>
             {health.map((svc, i) => (
-              <tr key={i}>
+              <tr key={svc.service}>
                 <td className="font-medium">{svc.service}</td>
                 <td>
                   <div className="flex items-center gap-2">
@@ -3556,7 +3563,7 @@ const AutomationV1 = () => {
       const res = await axios.get(`${API}/automation/rules`);
       setRules(res.data);
     } catch (e) {
-      console.error("Error fetching rules:", e);
+      logError("Error fetching rules:", e);
     } finally {
       setLoading(false);
     }
@@ -3573,7 +3580,7 @@ const AutomationV1 = () => {
       setShowCreate(false);
       fetchRules();
     } catch (e) {
-      console.error("Error creating rule:", e);
+      logError("Error creating rule:", e);
     }
   };
 
@@ -3582,7 +3589,7 @@ const AutomationV1 = () => {
       await axios.put(`${API}/automation/rules/${id}/toggle`);
       fetchRules();
     } catch (e) {
-      console.error("Error toggling rule:", e);
+      logError("Error toggling rule:", e);
     }
   };
 
@@ -3591,7 +3598,7 @@ const AutomationV1 = () => {
       await axios.delete(`${API}/automation/rules/${id}`);
       fetchRules();
     } catch (e) {
-      console.error("Error deleting rule:", e);
+      logError("Error deleting rule:", e);
     }
   };
 
@@ -3739,7 +3746,7 @@ const AutomationV2 = () => {
       const res = await axios.get(`${API}/automation/strategies`);
       setStrategies(res.data);
     } catch (e) {
-      console.error("Error fetching strategies:", e);
+      logError("Error fetching strategies:", e);
     } finally {
       setLoading(false);
     }
@@ -3761,7 +3768,7 @@ const AutomationV2 = () => {
       setSelectedStrategy(res.data);
       setCode(res.data.code);
     } catch (e) {
-      console.error("Error creating strategy:", e);
+      logError("Error creating strategy:", e);
     }
   };
 
@@ -3774,7 +3781,7 @@ const AutomationV2 = () => {
       });
       fetchStrategies();
     } catch (e) {
-      console.error("Error saving strategy:", e);
+      logError("Error saving strategy:", e);
     }
   };
 
@@ -3783,7 +3790,7 @@ const AutomationV2 = () => {
       await axios.put(`${API}/automation/strategies/${id}/toggle`);
       fetchStrategies();
     } catch (e) {
-      console.error("Error toggling strategy:", e);
+      logError("Error toggling strategy:", e);
     }
   };
 

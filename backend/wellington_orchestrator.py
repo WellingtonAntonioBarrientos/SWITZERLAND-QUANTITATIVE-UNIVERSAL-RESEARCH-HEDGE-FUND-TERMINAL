@@ -137,95 +137,20 @@ class WellingtonOrchestrator:
             # Classify the query
             query_type = self.classify_query(user_message)
             
-            # Route to appropriate engine
-            if query_type == "standard":
-                response = await self.standard_ai.chat_with_wellington(
-                    user_message, context, image_data, file_content, url_content
-                )
-                return {
-                    "response": response,
-                    "mode_used": "standard",
-                    "metadata": {"auto_detected": True}
-                }
+            handlers = {
+                "code_generation": self._handle_code_generation,
+                "deep_analysis": self._handle_deep_analysis,
+                "research": self._handle_research,
+                "strategy_builder": self._handle_strategy_builder,
+                "debate": self._handle_debate,
+            }
+            handler = handlers.get(query_type)
+            if handler:
+                return await handler(user_message, context)
             
-            elif query_type == "code_generation":
-                # Extract strategy description and parameters from query
-                result = await self.advanced_ai.generate_trading_code(
-                    strategy_description=user_message,
-                    parameters={
-                        "instruments": context.get("symbols", ["SPY", "QQQ"]),
-                        "timeframe": "daily",
-                        "risk_per_trade": 2,
-                        "max_positions": 5
-                    }
-                )
-                return {
-                    "response": result.get("explanation", ""),
-                    "code": result.get("code", ""),
-                    "mode_used": "code_generation",
-                    "metadata": {"auto_detected": True}
-                }
-            
-            elif query_type == "deep_analysis":
-                result = await self.advanced_ai.deep_analysis(user_message, context)
-                return {
-                    "response": result.get("answer", result.get("full_response", "")),
-                    "thinking": result.get("thinking", ""),
-                    "mode_used": "deep_analysis",
-                    "metadata": {"auto_detected": True, "confidence_level": "high"}
-                }
-            
-            elif query_type == "research":
-                result = await self.advanced_ai.market_research(user_message, depth="comprehensive")
-                return {
-                    "response": result.get("answer", result.get("full_response", "")),
-                    "thinking": result.get("thinking", ""),
-                    "mode_used": "research",
-                    "metadata": {"auto_detected": True}
-                }
-            
-            elif query_type == "strategy_builder":
-                result = await self.advanced_ai.build_strategy_interactive(
-                    user_message, 
-                    conversation_state={"stage": "objectives", "context": context}
-                )
-                return {
-                    "response": result.get("response", ""),
-                    "mode_used": "strategy_builder",
-                    "next_stage": result.get("next_stage", "objectives"),
-                    "metadata": {"auto_detected": True, "interactive": True}
-                }
-            
-            elif query_type == "debate":
-                # Multi-agent debate with bull/bear perspectives
-                perspectives = ["Bullish Investor", "Bearish Analyst", "Risk Manager"]
-                result = await self.advanced_ai.multi_agent_debate(user_message, perspectives)
-                
-                # Format the debate nicely
-                debate_text = "**Multi-Perspective Analysis**\n\n"
-                for perspective, response in result.get("perspectives", {}).items():
-                    debate_text += f"### {perspective}\n{response}\n\n"
-                
-                debate_text += f"### Synthesis\n{result.get('synthesis', '')}"
-                
-                return {
-                    "response": debate_text,
-                    "mode_used": "multi_agent_debate",
-                    "perspectives": result.get("perspectives", {}),
-                    "synthesis": result.get("synthesis", ""),
-                    "metadata": {"auto_detected": True}
-                }
-            
-            else:
-                # Fallback to standard
-                response = await self.standard_ai.chat_with_wellington(
-                    user_message, context, image_data, file_content, url_content
-                )
-                return {
-                    "response": response,
-                    "mode_used": "standard",
-                    "metadata": {"auto_detected": True, "fallback": True}
-                }
+            return await self._handle_standard(
+                user_message, context, image_data, file_content, url_content
+            )
         
         except Exception as e:
             logging.error(f"Wellington Orchestrator error: {e}")
@@ -235,6 +160,83 @@ class WellingtonOrchestrator:
                 "error": str(e),
                 "metadata": {}
             }
+    
+    async def _handle_standard(self, user_message: str, context: Dict,
+                               image_data: Optional[str] = None,
+                               file_content: Optional[str] = None,
+                               url_content: Optional[str] = None) -> Dict:
+        response = await self.standard_ai.chat_with_wellington(
+            user_message, context, image_data, file_content, url_content
+        )
+        return {
+            "response": response,
+            "mode_used": "standard",
+            "metadata": {"auto_detected": True}
+        }
+    
+    async def _handle_code_generation(self, user_message: str, context: Dict) -> Dict:
+        result = await self.advanced_ai.generate_trading_code(
+            strategy_description=user_message,
+            parameters={
+                "instruments": context.get("symbols", ["SPY", "QQQ"]),
+                "timeframe": "daily",
+                "risk_per_trade": 2,
+                "max_positions": 5
+            }
+        )
+        return {
+            "response": result.get("explanation", ""),
+            "code": result.get("code", ""),
+            "mode_used": "code_generation",
+            "metadata": {"auto_detected": True}
+        }
+    
+    async def _handle_deep_analysis(self, user_message: str, context: Dict) -> Dict:
+        result = await self.advanced_ai.deep_analysis(user_message, context)
+        return {
+            "response": result.get("answer", result.get("full_response", "")),
+            "thinking": result.get("thinking", ""),
+            "mode_used": "deep_analysis",
+            "metadata": {"auto_detected": True, "confidence_level": "high"}
+        }
+    
+    async def _handle_research(self, user_message: str, context: Dict) -> Dict:
+        result = await self.advanced_ai.market_research(user_message, depth="comprehensive")
+        return {
+            "response": result.get("answer", result.get("full_response", "")),
+            "thinking": result.get("thinking", ""),
+            "mode_used": "research",
+            "metadata": {"auto_detected": True}
+        }
+    
+    async def _handle_strategy_builder(self, user_message: str, context: Dict) -> Dict:
+        result = await self.advanced_ai.build_strategy_interactive(
+            user_message, 
+            conversation_state={"stage": "objectives", "context": context}
+        )
+        return {
+            "response": result.get("response", ""),
+            "mode_used": "strategy_builder",
+            "next_stage": result.get("next_stage", "objectives"),
+            "metadata": {"auto_detected": True, "interactive": True}
+        }
+    
+    async def _handle_debate(self, user_message: str, context: Dict) -> Dict:
+        perspectives = ["Bullish Investor", "Bearish Analyst", "Risk Manager"]
+        result = await self.advanced_ai.multi_agent_debate(user_message, perspectives)
+        
+        debate_text = "**Multi-Perspective Analysis**\n\n"
+        for perspective, response in result.get("perspectives", {}).items():
+            debate_text += f"### {perspective}\n{response}\n\n"
+        debate_text += f"### Synthesis\n{result.get('synthesis', '')}"
+        
+        return {
+            "response": debate_text,
+            "mode_used": "multi_agent_debate",
+            "perspectives": result.get("perspectives", {}),
+            "synthesis": result.get("synthesis", ""),
+            "metadata": {"auto_detected": True}
+        }
 
 # Singleton
 _orchestrator = None
