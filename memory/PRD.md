@@ -30,6 +30,10 @@ Build a private quant financial application with quant dashboard, macro regime, 
   - Fixed iteration-4 HIGH regression: watchlist key={item.position} (symbols repeat across funds)
 - Jul 2026: Rebranded to SQUHF Terminal (index.html title/meta, sidebar, profile, terminal boot, API title); removed Emergent badge script
 
+## Security (audit remediated Jul 2026)
+- Open access is an accepted design decision (no auth). Audit-fixed beyond that: SSRF guard on analyze-url, removed hardcoded LLM key (fail-closed), 10MB upload caps + 8000-char chat cap, in-memory per-IP rate limiting on LLM/analyze-url/upload, reset requires confirm=='RESET-ACCOUNT', generic error messages, CORS credentials off under wildcard.
+- Residual (accepted/backlog): open access means anyone with URL can use paid AI + place paper trades; rate limiter is per-process (move to Redis if scaling >1 worker).
+
 ## Known Issues / Notes
 - EMERGENT_LLM_KEY budget EXHAUSTED — Wellington AI live replies return budget-exceeded error until user tops up (Profile → Universal Key → Add Balance)
 - Code-generation Wellington prompts can exceed 60s ingress timeout (worse while budget errors trigger retries) — P2: streaming/background task
