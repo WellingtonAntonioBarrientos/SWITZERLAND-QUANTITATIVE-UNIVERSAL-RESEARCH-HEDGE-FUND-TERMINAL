@@ -37,7 +37,9 @@ db = client[os.environ['DB_NAME']]
 OWNER_EMAIL = "barrientoswellingtonantonio@gmail.com"
 
 # Initialize Openclaw AI Trading Analyzer
-EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', 'sk-emergent-fAc13EfFcA994F79cC')
+EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY')
+if not EMERGENT_LLM_KEY:
+    raise RuntimeError("EMERGENT_LLM_KEY environment variable is required")
 openclaw_analyzer = OpenclawTradingAnalyzer(api_key=EMERGENT_LLM_KEY)
 
 # Create the main app
@@ -51,6 +53,48 @@ api_router = APIRouter(prefix="/api")
 async def verify_token_dep() -> dict:
     """Open access: always resolves to the owner account"""
     return {"email": OWNER_EMAIL}
+
+# ============== SECURITY HELPERS ==============
+import ipaddress
+import socket
+import time
+from urllib.parse import urlparse
+from collections import defaultdict
+from fastapi import Request
+
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB cap on uploaded files
+
+# Lightweight in-memory sliding-window rate limiter (per client IP, per bucket)
+_rate_buckets: Dict[str, list] = defaultdict(list)
+
+def rate_limit(request: Request, bucket: str, limit: int, window_seconds: int = 60):
+    """Raise 429 if the caller exceeds `limit` requests in `window_seconds`."""
+    client_ip = request.headers.get("x-forwarded-for", request.client.host if request.client else "unknown").split(",")[0].strip()
+    key = f"{bucket}:{client_ip}"
+    now = time.time()
+    hits = [t for t in _rate_buckets[key] if now - t < window_seconds]
+    if len(hits) >= limit:
+        raise HTTPException(status_code=429, detail="Rate limit exceeded. Please slow down.")
+    hits.append(now)
+    _rate_buckets[key] = hits
+
+def validate_public_url(raw_url: str) -> str:
+    """Block SSRF: only allow http(s) to public, resolvable hosts (no private/loopback/link-local)."""
+    parsed = urlparse(raw_url)
+    if parsed.scheme not in ("http", "https"):
+        raise HTTPException(status_code=400, detail="Only http and https URLs are allowed")
+    host = parsed.hostname
+    if not host:
+        raise HTTPException(status_code=400, detail="Invalid URL host")
+    try:
+        addr_infos = socket.getaddrinfo(host, None)
+    except socket.gaierror:
+        raise HTTPException(status_code=400, detail="Could not resolve host")
+    for info in addr_infos:
+        ip = ipaddress.ip_address(info[4][0])
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast or ip.is_unspecified:
+            raise HTTPException(status_code=400, detail="URL resolves to a disallowed (non-public) address")
+    return raw_url
 
 # ============== MODELS ==============
 
@@ -1265,9 +1309,14 @@ async def place_order(order_req: PlaceOrderRequest, user: dict = Depends(verify_
             await db.paper_accounts.update_one({"user_id": user_id}, {"$set": account})
             return {"status": "pending", "message": "Limit order placed, waiting for price", "order": order}
 
+class ResetAccountRequest(BaseModel):
+    confirm: str = ""
+
 @api_router.post("/paper-trading/reset")
-async def reset_paper_account(user: dict = Depends(verify_token_dep)):
-    """Reset paper trading account back to $100M"""
+async def reset_paper_account(body: ResetAccountRequest, user: dict = Depends(verify_token_dep)):
+    """Reset paper trading account back to $100M (requires explicit confirmation)"""
+    if body.confirm != "RESET-ACCOUNT":
+        raise HTTPException(status_code=400, detail="Confirmation required: send confirm='RESET-ACCOUNT' to reset the account")
     user_id = user["email"]
     
     new_account = create_default_account(user_id)
@@ -1297,7 +1346,7 @@ async def get_wellington_models():
     return {"models": AVAILABLE_MODELS, "default": DEFAULT_MODEL}
 
 @api_router.post("/wellington/chat")
-async def chat_with_wellington(request: WellingtonChatRequest, user: dict = Depends(verify_token_dep)):
+async def chat_with_wellington(request: WellingtonChatRequest, http_request: Request, user: dict = Depends(verify_token_dep)):
     """
     Chat with Wellington AI with multimodal support and smart auto-detection
     
@@ -1310,6 +1359,9 @@ async def chat_with_wellington(request: WellingtonChatRequest, user: dict = Depe
     - Multi-Agent Debate: Multiple perspectives on a decision
     """
     try:
+        rate_limit(http_request, "llm", limit=20, window_seconds=60)
+        if len(request.message or "") > 8000:
+            raise HTTPException(status_code=413, detail="Message too long (max 8000 characters)")
         api_key = os.environ.get('EMERGENT_LLM_KEY')
         if not api_key:
             return {"error": "AI key not configured"}
@@ -1351,14 +1403,19 @@ async def chat_with_wellington(request: WellingtonChatRequest, user: dict = Depe
             "metadata": result.get("metadata", {}),
             "timestamp": datetime.now(timezone.utc).isoformat()
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logging.error(f"Wellington chat error: {e}")
-        return {"error": str(e)}
+        return {"error": "Wellington AI request failed"}
 
 @api_router.post("/wellington/upload-image")
-async def wellington_upload_image(file: bytes = File(...), prompt: str = Form(None)):
+async def wellington_upload_image(request: Request, file: bytes = File(...), prompt: str = Form(None)):
     """Upload and analyze image with Wellington AI"""
     try:
+        rate_limit(request, "upload", limit=15, window_seconds=60)
+        if len(file) > MAX_UPLOAD_BYTES:
+            raise HTTPException(status_code=413, detail="File exceeds 10 MB limit")
         api_key = os.environ.get('EMERGENT_LLM_KEY')
         wellington = get_wellington_ai(api_key)
         
@@ -1369,23 +1426,32 @@ async def wellington_upload_image(file: bytes = File(...), prompt: str = Form(No
         analysis = await wellington.analyze_image(image_data, prompt)
         
         return {"analysis": analysis, "timestamp": datetime.now(timezone.utc).isoformat()}
+    except HTTPException:
+        raise
     except Exception as e:
-        return {"error": str(e)}
+        logging.error(f"upload-image error: {e}")
+        return {"error": "Failed to analyze image"}
 
 @api_router.post("/wellington/analyze-url")
-async def wellington_analyze_url(url: str = Form(...)):
+async def wellington_analyze_url(request: Request, url: str = Form(...)):
     """Analyze website URL content"""
     try:
+        rate_limit(request, "analyze-url", limit=10, window_seconds=60)
+        safe_url = validate_public_url(url)
         api_key = os.environ.get('EMERGENT_LLM_KEY')
         wellington = get_wellington_ai(api_key)
         
-        # Fetch URL content using crawl_tool or requests
+        # Fetch URL content
         import requests
         from bs4 import BeautifulSoup
         
         headers = {'User-Agent': 'Mozilla/5.0'}
-        response = requests.get(url, headers=headers, timeout=10)
-        soup = BeautifulSoup(response.content, 'html.parser')
+        response = requests.get(safe_url, headers=headers, timeout=10, allow_redirects=False, stream=True)
+        # Enforce a response size cap while reading
+        raw = response.raw.read(MAX_UPLOAD_BYTES + 1, decode_content=True)
+        if len(raw) > MAX_UPLOAD_BYTES:
+            raise HTTPException(status_code=413, detail="Remote content too large")
+        soup = BeautifulSoup(raw, 'html.parser')
         
         # Extract text
         for script in soup(["script", "style"]):
@@ -1395,28 +1461,31 @@ async def wellington_analyze_url(url: str = Form(...)):
         content = '\n'.join(line for line in lines if line)
         
         # Analyze
-        analysis = await wellington.analyze_url(url, content)
+        analysis = await wellington.analyze_url(safe_url, content)
         
         return {
-            "url": url,
+            "url": safe_url,
             "analysis": analysis,
             "timestamp": datetime.now(timezone.utc).isoformat()
         }
+    except HTTPException:
+        raise
     except Exception as e:
-        return {"error": str(e)}
+        logging.error(f"analyze-url error: {e}")
+        return {"error": "Failed to analyze URL"}
 
 @api_router.post("/wellington/upload-file")
-async def wellington_upload_file(file: bytes = File(...), filename: str = Form(...)):
+async def wellington_upload_file(request: Request, file: bytes = File(...), filename: str = Form(...)):
     """Upload and analyze document file"""
     try:
+        rate_limit(request, "upload", limit=15, window_seconds=60)
+        if len(file) > MAX_UPLOAD_BYTES:
+            raise HTTPException(status_code=413, detail="File exceeds 10 MB limit")
         api_key = os.environ.get('EMERGENT_LLM_KEY')
         wellington = get_wellington_ai(api_key)
         
         # Extract text based on file type
         file_content = file.decode('utf-8', errors='ignore')  # Simple text extraction
-        
-        # For PDFs, you might want to use PyPDF2 or similar
-        # For now, treating as text
         
         analysis = await wellington.analyze_file(file_content, filename)
         
@@ -1425,13 +1494,17 @@ async def wellington_upload_file(file: bytes = File(...), filename: str = Form(.
             "analysis": analysis,
             "timestamp": datetime.now(timezone.utc).isoformat()
         }
+    except HTTPException:
+        raise
     except Exception as e:
-        return {"error": str(e)}
+        logging.error(f"upload-file error: {e}")
+        return {"error": "Failed to analyze file"}
 
 @api_router.post("/wellington/analyze")
-async def wellington_analyze_watchlist(roi_target: float = 50.0, user: dict = Depends(verify_token_dep)):
+async def wellington_analyze_watchlist(http_request: Request, roi_target: float = 50.0, user: dict = Depends(verify_token_dep)):
     """Have Wellington AI analyze the watchlist with ROI target"""
     try:
+        rate_limit(http_request, "llm", limit=20, window_seconds=60)
         api_key = os.environ.get('EMERGENT_LLM_KEY')
         if not api_key:
             return {"error": "AI key not configured"}
@@ -1474,9 +1547,10 @@ async def wellington_analyze_watchlist(roi_target: float = 50.0, user: dict = De
         return {"error": str(e)}
 
 @api_router.post("/wellington/auto-trade")
-async def wellington_auto_trade(roi_target: float = 50.0, user: dict = Depends(verify_token_dep)):
+async def wellington_auto_trade(http_request: Request, roi_target: float = 50.0, user: dict = Depends(verify_token_dep)):
     """Execute autonomous trading with ROI target"""
     try:
+        rate_limit(http_request, "llm", limit=10, window_seconds=60)
         api_key = os.environ.get('EMERGENT_LLM_KEY')
         if not api_key:
             return {"error": "AI key not configured"}
@@ -1652,10 +1726,11 @@ Provide:
 # Include the router in the main app
 app.include_router(api_router)
 
+_cors_origins = os.environ.get('CORS_ORIGINS', '*').split(',')
 app.add_middleware(
     CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_credentials='*' not in _cors_origins,
+    allow_origins=_cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )

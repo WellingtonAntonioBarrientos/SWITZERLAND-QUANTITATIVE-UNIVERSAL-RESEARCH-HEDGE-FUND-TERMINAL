@@ -671,7 +671,7 @@ const PaperTradingPage = ({ viewMode }) => {
     }
     
     try {
-      await axios.post(`${API}/paper-trading/reset`);
+      await axios.post(`${API}/paper-trading/reset`, { confirm: 'RESET-ACCOUNT' });
       setMessage({ type: 'success', text: 'Account reset successfully!' });
       await fetchAccountData();
     } catch (e) {
