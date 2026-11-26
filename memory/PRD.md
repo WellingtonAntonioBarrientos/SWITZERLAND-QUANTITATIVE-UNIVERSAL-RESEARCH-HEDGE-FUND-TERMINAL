@@ -28,6 +28,7 @@ Build a private quant financial application with quant dashboard, macro regime, 
   - Fixed pre-existing crash: Wellington functions were trapped in resetAccount's unclosed catch block
   - Code review fixes: deleted dead auth files (hooks/useAuth.js, utils/api.js, components/auth/*), console.error → dev-gated logError, 17 list keys index→stable ids, orchestrator process_query split into _handle_* dispatch, eslint exhaustive-deps annotations
   - Fixed iteration-4 HIGH regression: watchlist key={item.position} (symbols repeat across funds)
+- Nov 2026: Fund Alerts — daily 13F diff engine (.emergent/crons.yml cron 13:00 UTC + manual Check Now) creating ENTERED/EXITED/NEW_FILING alerts, alerts panel with unread badge on /sec-filings
 - Jul 2026: Rebranded to SQUHF Terminal (index.html title/meta, sidebar, profile, terminal boot, API title); removed Emergent badge script
 
 ## Security (audit remediated Jul 2026)

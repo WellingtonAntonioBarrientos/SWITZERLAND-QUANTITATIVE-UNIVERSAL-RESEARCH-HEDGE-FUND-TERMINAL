@@ -1497,6 +1497,78 @@ async def chat_with_wellington_stream(request: WellingtonChatRequest, http_reque
     return StreamingResponse(event_generator(), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
+# ============== FUND ALERTS (13F entry/exit detection) ==============
+import hmac
+
+async def run_13f_diff_check() -> int:
+    """Compare current 13F holdings against stored snapshots; create alerts for entries/exits"""
+    new_alerts = 0
+    now = datetime.now(timezone.utc).isoformat()
+    baseline_mode = await db.fund_snapshots.count_documents({}) == 0
+    
+    for fund in TOP_10_HEDGE_FUNDS:
+        current = {h["symbol"]: {"name": h["name"], "percent": h["percent"]} for h in fund["top_holdings"]}
+        prev = await db.fund_snapshots.find_one({"fund_id": fund["id"]}, {"_id": 0})
+        
+        alerts = []
+        if prev is None:
+            if not baseline_mode:
+                alerts.append({"type": "NEW_FILING", "symbol": None, "name": None, "percent": None,
+                               "message": f"{fund['fund_name']} filed its first 13F ({fund['quarter']}) with {len(current)} holdings"})
+        else:
+            prev_symbols = set(prev.get("holdings", {}).keys())
+            cur_symbols = set(current.keys())
+            for sym in sorted(cur_symbols - prev_symbols):
+                alerts.append({"type": "ENTERED", "symbol": sym, "name": current[sym]["name"], "percent": current[sym]["percent"],
+                               "message": f"{fund['fund_name']} ENTERED {sym} ({current[sym]['percent']:.2f}% of portfolio) in {fund['quarter']}"})
+            for sym in sorted(prev_symbols - cur_symbols):
+                old = prev["holdings"][sym]
+                alerts.append({"type": "EXITED", "symbol": sym, "name": old.get("name"), "percent": old.get("percent"),
+                               "message": f"{fund['fund_name']} EXITED {sym} (was {old.get('percent', 0):.2f}% of portfolio) in {fund['quarter']}"})
+        
+        for a in alerts:
+            await db.fund_alerts.insert_one({
+                "alert_id": str(uuid4()), "fund_id": fund["id"], "fund_name": fund["fund_name"],
+                "quarter": fund["quarter"], "created_at": now, "read": False, **a
+            })
+        new_alerts += len(alerts)
+        
+        await db.fund_snapshots.update_one(
+            {"fund_id": fund["id"]},
+            {"$set": {"fund_id": fund["id"], "fund_name": fund["fund_name"], "quarter": fund["quarter"],
+                      "holdings": current, "updated_at": now}},
+            upsert=True
+        )
+    return new_alerts
+
+@api_router.post("/cron/check-13f")
+async def cron_check_13f(http_request: Request):
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    secret = os.environ.get("WEBHOOK_CRON_SECRET")
+    auth = http_request.headers.get("authorization", "")
+    if not secret or not auth.startswith("Bearer ") or not hmac.compare_digest(auth[7:], secret):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    asyncio.create_task(run_13f_diff_check())
+    return {"status": "accepted"}
+
+@api_router.post("/alerts/run-check")
+async def alerts_run_check(http_request: Request):
+    """Manual 'Check Now' from the UI"""
+    rate_limit(http_request, "alerts-check", limit=6, window_seconds=60)
+    count = await run_13f_diff_check()
+    return {"status": "success", "new_alerts": count}
+
+@api_router.get("/alerts")
+async def get_fund_alerts(limit: int = 50):
+    alerts = await db.fund_alerts.find({}, {"_id": 0}).sort("created_at", -1).to_list(min(limit, 200))
+    unread = await db.fund_alerts.count_documents({"read": False})
+    return {"alerts": alerts, "unread_count": unread}
+
+@api_router.post("/alerts/mark-read")
+async def mark_alerts_read():
+    result = await db.fund_alerts.update_many({"read": False}, {"$set": {"read": True}})
+    return {"status": "success", "marked": result.modified_count}
+
 @api_router.post("/wellington/upload-image")
 async def wellington_upload_image(request: Request, file: bytes = File(...), prompt: str = Form(None)):
     """Upload and analyze image with Wellington AI"""

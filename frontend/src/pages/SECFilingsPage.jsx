@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
-import { RefreshCw, Brain, Scale } from "lucide-react";
+import { RefreshCw, Brain, Scale, Bell } from "lucide-react";
 import { API, logError } from '../lib/config';
 import { LoadingState } from '../components/Shared';
 import { FundComparison } from '../components/FundComparison';
+import { FundAlerts } from '../components/FundAlerts';
 
 const SECFilingsPage = ({ viewMode }) => {
   const [filings, setFilings] = useState([]);
@@ -14,6 +15,12 @@ const SECFilingsPage = ({ viewMode }) => {
   const [analysis, setAnalysis] = useState({});
   const [allFundsAnalysis, setAllFundsAnalysis] = useState(null);
   const [showComparison, setShowComparison] = useState(false);
+  const [showAlerts, setShowAlerts] = useState(false);
+  const [unreadAlerts, setUnreadAlerts] = useState(0);
+
+  useEffect(() => {
+    axios.get(`${API}/alerts?limit=1`).then(res => setUnreadAlerts(res.data.unread_count || 0)).catch(() => {});
+  }, []);
 
   useEffect(() => {
     const fetchFilings = async () => {
@@ -70,6 +77,18 @@ const SECFilingsPage = ({ viewMode }) => {
             Total AUM Tracked: ${(filings.reduce((a, b) => a + b.aum, 0) / 1e12).toFixed(2)}T
           </div>
           <button
+            onClick={() => setShowAlerts(s => !s)}
+            className={`btn-quant px-4 py-2 text-sm flex items-center gap-2 relative ${showAlerts ? 'bg-[#3b82f6] text-white' : ''} ${isBloomberg ? 'border-[#ff6600] hover:bg-[#ff6600] hover:text-black' : ''}`}
+            data-testid="toggle-fund-alerts"
+          >
+            <Bell size={16} /> Alerts
+            {unreadAlerts > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-[#ef4444] text-white text-[10px] font-bold flex items-center justify-center" data-testid="alerts-unread-badge">
+                {unreadAlerts}
+              </span>
+            )}
+          </button>
+          <button
             onClick={() => setShowComparison(s => !s)}
             className={`btn-quant px-4 py-2 text-sm flex items-center gap-2 ${showComparison ? 'bg-[#3b82f6] text-white' : ''} ${isBloomberg ? 'border-[#ff6600] hover:bg-[#ff6600] hover:text-black' : ''}`}
             data-testid="toggle-fund-comparison"
@@ -90,6 +109,11 @@ const SECFilingsPage = ({ viewMode }) => {
           </button>
         </div>
       </div>
+
+      {/* Fund Alerts */}
+      {showAlerts && (
+        <FundAlerts isBloomberg={isBloomberg} onUnreadChange={setUnreadAlerts} />
+      )}
 
       {/* Fund Comparison */}
       {showComparison && filings.length >= 2 && (

@@ -1,0 +1,8 @@
+crons:
+  - name: check-13f-filings
+    description: "Daily scan of 13F filings data to alert when a fund enters or exits a position"
+    cron: "0 13 * * *"
+    endpoint: "{{BASE_URL}}/api/cron/check-13f"
+    method: POST
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    enabled: true
