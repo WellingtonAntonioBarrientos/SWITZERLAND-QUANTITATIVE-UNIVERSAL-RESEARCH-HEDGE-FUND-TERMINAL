@@ -4,6 +4,16 @@ import { RefreshCw, AlertTriangle, Shield, Brain, Cpu, Bot, Database, Users, Wor
 import { API, logError } from '../lib/config';
 import { LoadingState } from '../components/Shared';
 
+const formatMetricValue = (key, value) => {
+  if (typeof value === 'boolean') return value ? 'YES' : 'NO';
+  if (typeof value !== 'number') return String(value);
+  if (key.endsWith('_ms') || key.includes('latency')) return `${value}ms`;
+  if (key.includes('rate') || key.includes('accuracy') || key.includes('uptime') || key.includes('pct') || key.includes('percent')) {
+    return `${value <= 1 ? (value * 100).toFixed(1) : value.toFixed(1)}%`;
+  }
+  return value.toLocaleString();
+};
+
 const AutomationHubPage = ({ viewMode }) => {
   const [modules, setModules] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -116,7 +126,7 @@ const AutomationHubPage = ({ viewMode }) => {
                     <div key={key}>
                       <div className="text-[9px] uppercase text-[#71717a]">{key.replace(/_/g, ' ')}</div>
                       <div className={`font-mono text-sm ${isBloomberg ? 'text-[#00ff00]' : ''}`}>
-                        {typeof value === 'number' ? (value < 1 ? (value * 100).toFixed(1) + '%' : value.toLocaleString()) : String(value)}
+                        {formatMetricValue(key, value)}
                       </div>
                     </div>
                   ))}
@@ -174,7 +184,7 @@ const AutomationHubPage = ({ viewMode }) => {
                     <div key={key} className="flex justify-between items-center">
                       <span className="text-xs text-[#71717a] capitalize">{key.replace(/_/g, ' ')}</span>
                       <span className={`font-mono text-sm ${isBloomberg ? 'text-[#00ff00]' : ''}`}>
-                        {typeof value === 'number' ? (value < 1 && value > 0 ? (value * 100).toFixed(1) + '%' : value.toLocaleString()) : String(value)}
+                        {formatMetricValue(key, value)}
                       </span>
                     </div>
                   ))}

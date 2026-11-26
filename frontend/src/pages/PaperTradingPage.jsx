@@ -214,6 +214,7 @@ const PaperTradingPage = ({ viewMode }) => {
             let evt;
             try { evt = JSON.parse(line.slice(5)); } catch { continue; }
             if (evt.type === 'start') {
+              setWellingtonThinking(false);
               updateLast({ mode: evt.mode_used, model: evt.model_used });
             } else if (evt.type === 'delta') {
               appendLast(evt.content);
@@ -233,7 +234,16 @@ const PaperTradingPage = ({ viewMode }) => {
             }
           }
         }
-        updateLast({ streaming: false });
+        setWellingtonChat(prev => {
+          const next = [...prev];
+          const last = next[next.length - 1];
+          next[next.length - 1] = {
+            ...last,
+            streaming: false,
+            ...(!last.content ? { role: 'error', content: 'Wellington AI returned no response. Please try again.' } : {})
+          };
+          return next;
+        });
         setWellingtonThinking(false);
         return;
       }
@@ -375,7 +385,7 @@ const PaperTradingPage = ({ viewMode }) => {
       {/* Wellington AI Panel */}
       {showWellington && (
         <div className={`quant-card mb-4 ${isBloomberg ? 'bg-[#000] border-[#00e676]/50' : 'border-[#00e676]/50'}`}>
-          <div className="quant-card-header bg-gradient-to-r from-[#00e676] to-[#00bcd4] text-black">
+          <div className="quant-card-header bg-gradient-to-r from-[#00e676] to-[#00bcd4] !text-black font-bold">
             <Brain size={20} className="inline mr-2" />
             Wellington AI - Financial Supercomputer
           </div>
@@ -456,7 +466,8 @@ const PaperTradingPage = ({ viewMode }) => {
               <button
                 onClick={getWellingtonAnalysis}
                 disabled={wellingtonThinking}
-                className="btn-quant py-2 text-sm bg-[#00e676] hover:bg-[#00e676]/80 text-black"
+                className="btn-quant py-2 text-sm !bg-[#00e676] hover:!bg-[#00e676]/80 !text-black font-semibold"
+                data-testid="analyze-watchlist-btn"
               >
                 {wellingtonThinking ? 'Analyzing...' : 'Analyze Watchlist'}
               </button>
@@ -550,7 +561,7 @@ const PaperTradingPage = ({ viewMode }) => {
                     data-testid="wellington-model-select"
                   >
                     {(wellingtonModels.length > 0 ? wellingtonModels : [{ id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', tag: 'Latest · Recommended' }]).map(m => (
-                      <option key={m.id} value={m.id}>{m.label} — {m.tag}</option>
+                      <option key={m.id} value={m.id}>{`${m.label} — ${m.tag}`}</option>
                     ))}
                   </select>
                 </div>
@@ -638,6 +649,7 @@ const PaperTradingPage = ({ viewMode }) => {
                   placeholder="Ask Wellington AI..."
                   className="flex-1 px-3 py-2 bg-[#0a0a0a] border border-[#27272a] rounded text-sm"
                   disabled={wellingtonThinking}
+                  data-testid="wellington-chat-input"
                 />
                 
                 {/* File Upload Button */}
@@ -668,6 +680,7 @@ const PaperTradingPage = ({ viewMode }) => {
                   onClick={sendWellingtonMessage}
                   disabled={wellingtonThinking || (!wellingtonInput.trim() && !uploadedFile && !uploadedImage && !urlInput)}
                   className="btn-quant px-4 py-2 text-sm"
+                  data-testid="wellington-send-btn"
                 >
                   Send
                 </button>
@@ -736,6 +749,7 @@ const PaperTradingPage = ({ viewMode }) => {
                 <div
                   key={item.position}
                   onClick={() => setSelectedStock(item)}
+                  data-testid={`watchlist-row-${item.position}`}
                   className={`p-2 border-b border-[#27272a] cursor-pointer transition-colors ${
                     selectedStock?.symbol === item.symbol ? 'bg-[#3b82f6]/20' : 'hover:bg-[#18181b]'
                   }`}
@@ -788,6 +802,7 @@ const PaperTradingPage = ({ viewMode }) => {
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         onClick={() => setOrderForm({ ...orderForm, orderType: 'MARKET' })}
+                        data-testid="order-type-market"
                         className={`px-3 py-2 text-sm rounded ${
                           orderForm.orderType === 'MARKET' ? 'bg-[#3b82f6] text-white' : 'bg-[#27272a] text-[#a1a1aa]'
                         }`}
@@ -796,6 +811,7 @@ const PaperTradingPage = ({ viewMode }) => {
                       </button>
                       <button
                         onClick={() => setOrderForm({ ...orderForm, orderType: 'LIMIT' })}
+                        data-testid="order-type-limit"
                         className={`px-3 py-2 text-sm rounded ${
                           orderForm.orderType === 'LIMIT' ? 'bg-[#3b82f6] text-white' : 'bg-[#27272a] text-[#a1a1aa]'
                         }`}
@@ -811,6 +827,7 @@ const PaperTradingPage = ({ viewMode }) => {
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         onClick={() => setOrderForm({ ...orderForm, side: 'BUY' })}
+                        data-testid="order-side-buy"
                         className={`px-3 py-2 text-sm rounded ${
                           orderForm.side === 'BUY' ? 'bg-profit text-white' : 'bg-[#27272a] text-[#a1a1aa]'
                         }`}
@@ -819,6 +836,7 @@ const PaperTradingPage = ({ viewMode }) => {
                       </button>
                       <button
                         onClick={() => setOrderForm({ ...orderForm, side: 'SELL' })}
+                        data-testid="order-side-sell"
                         className={`px-3 py-2 text-sm rounded ${
                           orderForm.side === 'SELL' ? 'bg-loss text-white' : 'bg-[#27272a] text-[#a1a1aa]'
                         }`}
@@ -837,6 +855,7 @@ const PaperTradingPage = ({ viewMode }) => {
                       onChange={(e) => setOrderForm({ ...orderForm, quantity: e.target.value })}
                       className="w-full px-3 py-2 bg-[#18181b] border border-[#27272a] rounded font-mono"
                       min="1"
+                      data-testid="order-quantity-input"
                     />
                   </div>
 
@@ -874,6 +893,7 @@ const PaperTradingPage = ({ viewMode }) => {
                     onClick={placeOrder}
                     disabled={placing || (orderForm.orderType === 'LIMIT' && !orderForm.limitPrice)}
                     className="w-full btn-quant py-3 text-sm font-semibold"
+                    data-testid="place-order-btn"
                   >
                     {placing ? 'Placing Order...' : `Place ${orderForm.orderType} ${orderForm.side} Order`}
                   </button>
@@ -894,7 +914,7 @@ const PaperTradingPage = ({ viewMode }) => {
             <div className={`quant-card-header ${isBloomberg ? 'bg-[#ff6600] text-black' : ''}`}>
               POSITIONS ({account?.positions?.length || 0})
             </div>
-            <div className="max-h-[350px] overflow-y-auto">
+            <div className="max-h-[350px] overflow-y-auto" data-testid="positions-panel">
               {account?.positions && account.positions.length > 0 ? (
                 <table className="quant-table">
                   <thead>
@@ -932,7 +952,7 @@ const PaperTradingPage = ({ viewMode }) => {
             <div className={`quant-card-header ${isBloomberg ? 'bg-[#ff6600] text-black' : ''}`}>
               ORDER HISTORY (Last 10)
             </div>
-            <div className="max-h-[280px] overflow-y-auto">
+            <div className="max-h-[280px] overflow-y-auto" data-testid="order-history-panel">
               {account?.order_history && account.order_history.length > 0 ? (
                 <div className="p-2">
                   {account.order_history.slice(-10).reverse().map((order, idx) => (

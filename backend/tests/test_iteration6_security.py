@@ -26,7 +26,7 @@ def test_wellington_models_returns_4_claude():
     assert r.status_code == 200
     data = r.json()
     assert "models" in data and "default" in data
-    assert len(data["models"]) == 4
+    assert len(data["models"]) == 8  # iteration7: 4 Claude + 4 GPT
 
 
 # ---------- SEC-001 SSRF blocks ----------
@@ -146,7 +146,7 @@ def test_watchlist_50():
     assert r.status_code == 200
     data = r.json()
     items = data if isinstance(data, list) else data.get("watchlist") or data.get("items") or []
-    assert len(items) == 50, f"Expected 50 watchlist items, got {len(items)}"
+    assert len(items) == 75, f"Expected 75 watchlist items, got {len(items)}"
 
 
 def test_market_data():
@@ -164,7 +164,7 @@ def test_sec_13f_10_funds():
     assert r.status_code == 200
     data = r.json()
     funds = data if isinstance(data, list) else data.get("funds") or data.get("data") or []
-    assert len(funds) == 10, f"Expected 10 hedge funds, got {len(funds)}"
+    assert len(funds) == 15, f"Expected 15 hedge funds, got {len(funds)}"
 
 
 def test_dashboard_summary():

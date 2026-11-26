@@ -8,18 +8,20 @@ export const FundComparison = ({ filings, isBloomberg }) => {
   const fundA = filings.find(f => f.id === fundAId);
   const fundB = filings.find(f => f.id === fundBId);
 
-  const { overlap, uniqueA, uniqueB } = useMemo(() => {
-    if (!fundA || !fundB) return { overlap: [], uniqueA: [], uniqueB: [] };
-    const mapA = Object.fromEntries(fundA.top_holdings.map(h => [h.symbol, h]));
-    const mapB = Object.fromEntries(fundB.top_holdings.map(h => [h.symbol, h]));
-    const overlap = fundA.top_holdings
+  const { overlap, uniqueA, uniqueB, sortedA, sortedB } = useMemo(() => {
+    if (!fundA || !fundB) return { overlap: [], uniqueA: [], uniqueB: [], sortedA: [], sortedB: [] };
+    const sortedA = [...fundA.top_holdings].sort((a, b) => b.percent - a.percent);
+    const sortedB = [...fundB.top_holdings].sort((a, b) => b.percent - a.percent);
+    const mapA = Object.fromEntries(sortedA.map(h => [h.symbol, h]));
+    const mapB = Object.fromEntries(sortedB.map(h => [h.symbol, h]));
+    const overlap = sortedA
       .filter(h => mapB[h.symbol])
       .map(h => ({ symbol: h.symbol, name: h.name, pctA: h.percent, pctB: mapB[h.symbol].percent }))
       .sort((a, b) => (b.pctA + b.pctB) - (a.pctA + a.pctB))
       .slice(0, 12);
-    const uniqueA = fundA.top_holdings.filter(h => !mapB[h.symbol]).sort((a, b) => b.percent - a.percent).slice(0, 5);
-    const uniqueB = fundB.top_holdings.filter(h => !mapA[h.symbol]).sort((a, b) => b.percent - a.percent).slice(0, 5);
-    return { overlap, uniqueA, uniqueB };
+    const uniqueA = sortedA.filter(h => !mapB[h.symbol]).slice(0, 5);
+    const uniqueB = sortedB.filter(h => !mapA[h.symbol]).slice(0, 5);
+    return { overlap, uniqueA, uniqueB, sortedA, sortedB };
   }, [fundA, fundB]);
 
   if (!fundA || !fundB) return null;
@@ -27,7 +29,7 @@ export const FundComparison = ({ filings, isBloomberg }) => {
   const fmtAum = (v) => v >= 1e12 ? `$${(v / 1e12).toFixed(2)}T` : `$${(v / 1e9).toFixed(1)}B`;
   const accent = isBloomberg ? 'text-[#ff6600]' : 'text-[#3b82f6]';
 
-  const StatBlock = ({ fund, testid }) => (
+  const StatBlock = ({ fund, top, testid }) => (
     <div className="flex-1 p-4 bg-[#0a0a0a] border border-[#27272a] rounded" data-testid={testid}>
       <div className={`text-sm font-semibold mb-3 ${accent}`}>{fund.fund_name}</div>
       <div className="grid grid-cols-2 gap-3 text-xs">
@@ -37,7 +39,7 @@ export const FundComparison = ({ filings, isBloomberg }) => {
             {fund.quarterly_change >= 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}{fund.quarterly_change}%
           </div></div>
         <div><div className="text-[#71717a]">Holdings</div><div className="text-[#ededed] font-mono">{fund.top_holdings.length}</div></div>
-        <div><div className="text-[#71717a]">Top Position</div><div className="text-[#ededed] font-mono">{fund.top_holdings[0]?.symbol} ({fund.top_holdings[0]?.percent.toFixed(1)}%)</div></div>
+        <div><div className="text-[#71717a]">Top Position</div><div className="text-[#ededed] font-mono">{top?.symbol} ({top?.percent.toFixed(1)}%)</div></div>
       </div>
     </div>
   );
@@ -61,8 +63,8 @@ export const FundComparison = ({ filings, isBloomberg }) => {
         </div>
 
         <div className="flex gap-3">
-          <StatBlock fund={fundA} testid="compare-stats-a" />
-          <StatBlock fund={fundB} testid="compare-stats-b" />
+          <StatBlock fund={fundA} top={sortedA[0]} testid="compare-stats-a" />
+          <StatBlock fund={fundB} top={sortedB[0]} testid="compare-stats-b" />
         </div>
 
         <div>

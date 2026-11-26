@@ -15,9 +15,9 @@ Build a private quant financial application with quant dashboard, macro regime, 
 - **REMOVED (Dec 2025 fork)** at user request. App opens directly to /dashboard. All `/api/*` endpoints are open (verify_token_dep returns owner unconditionally). Old /api/auth/* endpoints deleted.
 
 ## Architecture
-- Frontend: React (App.js ~4,085 lines — refactor pending P0), TailwindCSS, react-globe.gl, react-plotly.js (Surface3D.jsx)
-- Backend: FastAPI + MongoDB (paper_accounts persisted), yfinance market data
-- AI: Claude via emergentintegrations (Emergent LLM key) — wellington_orchestrator.py routes standard/advanced modes with per-request model selection
+- Frontend: React — REFACTORED (Nov 2026): App.js is 65 lines (routing only); pages in src/pages/*.jsx (16 pages), shared in src/components/ (Sidebar, Shared, CompositeStrategyCard, HedgeFundWatchlist, FundComparison, Surface3D), src/lib/config.js (API, logError). TailwindCSS, react-globe.gl, react-plotly.js
+- Backend: FastAPI + MongoDB (paper_accounts persisted), yfinance market data with in-memory price cache (TTL 120s + stale fallback)
+- AI: Claude + ChatGPT via emergentintegrations 0.2.2 (Emergent LLM key) — wellington_orchestrator.py routes modes; SSE streaming endpoint /api/wellington/chat/stream (token-by-token for standard, keepalive+final for advanced modes)
 
 ## Implemented (chronological highlights)
 - Core 14-module dashboard, 13F filings (15 funds since Nov 2026: 10 original + Jane Street, SIG, HRT, Optiver, Jump Trading; Millennium was already included), paper trading + funds paper trading (150 orders, 16 positions, ~$100.3M); watchlist = top 5 × 15 funds = 75 items
@@ -41,8 +41,8 @@ Build a private quant financial application with quant dashboard, macro regime, 
 - Wellington view-mode CSS inconsistencies — P2
 
 ## Backlog
-- P0: Refactor App.js into /src/pages/ + /src/components/ (QuantDashboard, PaperTradingPage, SECFilingsPage, WellingtonChat, Sidebar...)
-- P2: Wellington AI streaming responses (also fixes timeout)
+- DONE (Nov 2026): App.js refactor, streaming responses, fund comparison view, bulk trades for new firms
+- P2: Extract PaperTradingPage sub-components (still ~980 lines: WellingtonPanel, OrderEntry, PositionsPanel)
 - P3: More 3D visualizations, real-time news feed for World Intel, chart export, watchlist row data-testids
 
 ## Test Reports

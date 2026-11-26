@@ -81,6 +81,26 @@ def rate_limit(request: Request, bucket: str, limit: int, window_seconds: int = 
     hits.append(now)
     _rate_buckets[key] = hits
 
+# In-memory price cache (TTL + stale fallback) to survive Yahoo Finance 429 storms
+_price_cache: Dict[str, tuple] = {}
+PRICE_TTL_SECONDS = 120
+
+def get_live_price(symbol: str) -> Optional[float]:
+    """Fetch a price with a short cache; fall back to stale cache on failure"""
+    now = time.time()
+    cached = _price_cache.get(symbol)
+    if cached and now - cached[1] < PRICE_TTL_SECONDS:
+        return cached[0]
+    try:
+        hist = yf.Ticker(symbol).history(period="1d")
+        if not hist.empty:
+            price = float(hist['Close'].iloc[-1])
+            _price_cache[symbol] = (price, now)
+            return price
+    except Exception:
+        pass
+    return cached[0] if cached else None
+
 def validate_public_url(raw_url: str) -> str:
     """Block SSRF: only allow http(s) to public, resolvable hosts (no private/loopback/link-local)."""
     parsed = urlparse(raw_url)
@@ -980,11 +1000,16 @@ async def get_dashboard_summary():
     total_pnl = sum([m.change for m in market_data])
     healthy_services = len([h for h in health_data if h.status == "HEALTHY"])
     
+    # Real paper trading account stats
+    account = await db.paper_accounts.find_one({"user_id": OWNER_EMAIL}, {"_id": 0})
+    portfolio_value = round(account.get("total_value", 0), 2) if account else 0
+    open_positions = len(account.get("positions", [])) if account else 0
+    
     return {
-        "portfolio_value": round(random.uniform(10000000, 100000000), 2),
+        "portfolio_value": portfolio_value,
         "daily_pnl": round(total_pnl * 10000, 2),
         "daily_pnl_percent": round(total_pnl / len(market_data), 2),
-        "open_positions": random.randint(15, 50),
+        "open_positions": open_positions,
         "current_regime": regime_data.current_regime,
         "regime_confidence": regime_data.confidence,
         "pending_approvals": pending_approvals,
@@ -1198,13 +1223,9 @@ async def get_paper_account(user: dict = Depends(verify_token_dep)):
         symbols = [p["symbol"] for p in account["positions"]]
         price_data = {}
         for symbol in symbols:
-            try:
-                ticker = yf.Ticker(symbol)
-                hist = ticker.history(period="1d")
-                if not hist.empty:
-                    price_data[symbol] = float(hist['Close'].iloc[-1])
-            except Exception:
-                pass
+            price = get_live_price(symbol)
+            if price is not None:
+                price_data[symbol] = price
         
         account["positions"] = update_positions_prices(account["positions"], price_data)
         total_value, total_pl = calculate_account_value(account["positions"], account["cash_balance"])
@@ -1237,13 +1258,8 @@ async def get_paper_watchlist():
             position += 1
     
     for item in watchlist:
-        try:
-            ticker = yf.Ticker(item["symbol"])
-            hist = ticker.history(period="1d")
-            if not hist.empty:
-                item["current_price"] = float(hist['Close'].iloc[-1])
-        except Exception:
-            item["current_price"] = 0
+        price = get_live_price(item["symbol"])
+        item["current_price"] = price if price is not None else 0
     
     return watchlist
 
@@ -1434,8 +1450,6 @@ async def chat_with_wellington_stream(request: WellingtonChatRequest, http_reque
             context = {
                 "account_value": account.get("total_value", 0),
                 "positions_count": len(account.get("positions", [])),
-                "success_rate": 0,
-                "recent_insights": [],
                 "symbols": ["SPY", "QQQ", "AAPL", "MSFT", "NVDA"]
             }
     
@@ -1452,7 +1466,7 @@ async def chat_with_wellington_stream(request: WellingtonChatRequest, http_reque
             yield sse({"type": "start", "mode_used": query_type, "model_used": selected_model})
             
             if query_type == "standard":
-                async for delta in orchestrator.standard_ai.stream_chat(request.message, context):
+                async for delta in orchestrator.standard_ai.stream_chat(request.message, context, model=selected_model, provider=selected_provider):
                     yield sse({"type": "delta", "content": delta})
                 yield sse({"type": "done", "mode_used": "standard", "model_used": selected_model})
             else:

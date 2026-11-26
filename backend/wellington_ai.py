@@ -268,10 +268,12 @@ Analyze this content and provide financial insights."""
             logging.error(f"Wellington chat error: {e}")
             return f"Wellington AI Error: {str(e)}"
     
-    async def stream_chat(self, user_message: str, context: Dict):
+    async def stream_chat(self, user_message: str, context: Dict, model: str = None, provider: str = None):
         """Streaming variant of chat_with_wellington: yields text deltas"""
         from emergentintegrations.llm.chat import TextDelta, StreamDone
         chat = self.create_chat_session(f"chat-{datetime.now().timestamp()}")
+        if model and provider:
+            chat.with_model(provider, model)
         context_str = self._build_context_string(context)
         full_prompt = f"""Context:
 {context_str}

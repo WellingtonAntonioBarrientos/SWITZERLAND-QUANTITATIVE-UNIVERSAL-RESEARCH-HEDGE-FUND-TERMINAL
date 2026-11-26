@@ -1,0 +1,48 @@
+{
+  "summary": "Full post-refactor regression + new-feature verification. All 17 routes render with real data, no ReferenceError/pageerror/undefined-import crashes (also statically linted all split files with no-undef/react/jsx-no-undef: 0 real undefined identifiers). Sidebar branding/nav/collapse/view modes work. SSE streaming chat works end-to-end (backend: start -> 42 deltas -> done, first token 0.43s; UI: reply text grew progressively 0->70->192->323->361 chars, then model badge claude-haiku-4-5-20251001 shown). Non-streaming /api/wellington/chat works on emergentintegrations 0.2.2. Fund Comparison panel works (toggle, 2 selects, stats, overlap table with diff, divergent bets, same-fund options disabled, updates on change). New data verified: 15 funds x 50 holdings, watchlist 75. Account 18 positions / 175 orders / $100.37M baseline; one UI order BUY 1 AAPL MARKET placed -> FILLED, shown at top of Order History, API now 176 orders (AAPL 1508->1509). Security guards intact (reset {} -> 400, analyze-url 127.0.0.1 -> 400). Main issue found: a data bug in the 10 original funds in hedge_funds_data.py (one 'filler' holding carries 68-81% weight), which skews Fund Comparison results.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/sec/13f (hedge_funds_data.py)", "issue": "DATA BUG: in all 10 original funds (bridgewater, renaissance, citadel, twosigma, millennium, deshaw, point72, viking, elliott, baupost), the last padded holding absorbs the rest of the 100% weight. Examples: Renaissance MRK 78.74% ($77.3B of a $98.2B fund), Citadel VZ 80.93%, Bridgewater PEP 74.77%. Holdings are also not sorted by percent. The 5 new quant firms are correct (max ~20%, sorted). This makes the Fund Comparison 'Overlapping Holdings' rows absurd (e.g. Optiver vs Renaissance shows MRK 1.02% vs 78.74% = -77.72%), makes 'Top Position' (top_holdings[0]) wrong, and corrupts AI prompts that use top_holdings."},
+      {"endpoint": "/api/dashboard/summary", "issue": "portfolio_value and open_positions are random (random.uniform/randint). The Hub shows e.g. $78.7M / 35 positions while the real paper account is $100.37M / 18 positions. This mock predates the refactor but contradicts the real account."},
+      {"endpoint": "/api/paper-trading/account", "issue": "FLAKY (1 of 3 runs, ~33%): 2 requests timed out (>15s) while Yahoo Finance was returning 429 Too Many Requests (134 such warnings in backend.err.log). They passed on retry at about 0.5s. Price fetch needs a timeout or cache so a 429 storm doesn't block account reads."},
+      {"endpoint": "/api/wellington/chat/stream", "issue": "Code review: it changes the shared orchestrator singleton's model/provider for each request (orchestrator.standard_ai.model = ...). Two users streaming with different models at the same time can swap models. Better to pass the model per call. The context also hardcodes success_rate 0, so the AI replies to 'hello' with '0% success rate... $500 allocation hasn't generated alpha' (misleading)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "PaperTradingPage Wellington model <select>", "issue": "Console error on /paper-trading: 'In HTML, <span> cannot be a child of <option>' (hydration warning). Cause: the option text {m.label} — {m.tag} is mixed JSX text, which the visual-edits dev wrapper splits into spans. Fix: use a single template string {`${m.label} — ${m.tag}`}.", "selector": "[data-testid=wellington-model-select] option", "priority": "LOW"},
+      {"component": "AutomationHubPage metric formatter", "issue": "The 'value < 1 => percent' rule mislabels values: latency_ms 0.8 shows as '80.0%', nav_calculated shows 'true', and accuracy 99.7 has no % sign. This predates the refactor (same code in the old App.js).", "selector": "/automation-hub module cards", "priority": "LOW"},
+      {"component": "QuantDashboard", "issue": "Inconsistent mock numbers: the SPY assets list shows $402.96 while Price Stats shows Close $716.76, and '52w High $185.50' is hardcoded below the current price.", "selector": "/quant price stats", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/paper-trading Wellington panel", "issues": ["Header 'WELLINGTON AI - FINANCIAL SUPERCOMPUTER' text is nearly invisible on the bright green gradient (low contrast)", "The 'Analyze' button text left of START AUTO-TRADING is very low contrast (dark on dark)", "'Wellington AI is thinking...' shows at the same time as the streaming bubble. Hide it once the first delta arrives."]},
+      {"screen": "/paper-trading order form", "issue_note": "Quantity resets to the default 100 after an order. That is fine, but worth knowing.", "issues": ["Missing data-testid on the order entry controls (Market/Limit/BUY/SELL buttons, quantity input, Place Order button), watchlist rows, chat input and Send button, and positions/order-history containers"]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_iteration7_refactor_stream.py", "/app/backend/tests/test_iteration6_security.py", "/app/test_reports/pytest/pytest_iteration7.xml"],
+  "action_items": [
+    "Fix hedge_funds_data.py for the 10 original funds: the last padded holding has 68-81% weight. Re-normalise the weights realistically, and sort top_holdings by percent descending (or sort in FundComparison/backend before using [0] as 'Top Position').",
+    "Wire /api/dashboard/summary portfolio_value/open_positions to the real paper account (db.paper_accounts) instead of random values.",
+    "Add a timeout and stale-cache fallback for the Yahoo Finance price fetch so a 429 rate limit can't make /api/paper-trading/account hang for more than 15s.",
+    "In chat/stream, stop changing the shared orchestrator's model per request (race risk), and drop the hardcoded success_rate 0 from the context.",
+    "Hide 'Wellington AI is thinking...' once streaming starts, and fix the low-contrast Wellington header and Analyze button.",
+    "Use a single template string for the model <option> text to clear the span-in-option console error.",
+    "Add data-testid to the paper-trading order form, watchlist rows, chat input/send, and positions/order-history.",
+    "Fix the AutomationHub metric formatter (use explicit per-key units)."
+  ],
+  "critical_code_review_comments": [
+    "Refactor looks clean: App.js is 65 lines and ESLint no-undef / react/jsx-no-undef over all pages/components found no undefined identifiers (only unused-var warnings, e.g. CompositeStrategyCard 'error').",
+    "PaperTradingPage.jsx is 969 lines (over the 700-line guideline). Extract WellingtonPanel/ChatPanel, OrderEntry and PositionsPanel into components.",
+    "SSE consumer: if the stream closes without a done event, updateLast({streaming:false}) leaves an empty assistant bubble with no error. Show a fallback message when the content is empty.",
+    "FundComparison: StatBlock is defined inside the render, so it remounts on every render (minor). Top Position assumes top_holdings is sorted."
+  ],
+  "updated_files": ["/app/backend/tests/test_iteration7_refactor_stream.py (new)", "/app/backend/tests/test_iteration6_security.py (updated stale baselines: models 4->8, watchlist 50->75, funds 10->15)"],
+  "success_rate": {"backend": "100% (8/8 new tests; iteration6 suite 16/16 after baseline update, with 2 flaky timeouts on the first run)", "frontend": "100% for requested flows (17/17 routes, sidebar, streaming chat, fund comparison, single order). Found 1 data bug and some minor UI/design issues."},
+  "seed_data_creation": "One paper order placed as instructed: BUY 1 AAPL MARKET (order_id fafcc10e-2ff4-4164-9303-d370710b85e9). Baseline is now 18 positions / 176 orders. No other data was created. Opened the 'New Rule/Strategy/Task' forms but did not save. No reset called. 4 LLM chat calls in total.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Open-access app, no login. Baseline after iteration 7: 18 positions, 176 orders, ~$100.37M. Do NOT reset (needs confirm token). Run pytest with -p no:xdist. Yahoo Finance 429s can slow /api/paper-trading/account. The model select has 8 models (4 Claude + 4 GPT). Fund comparison testids: toggle-fund-comparison, fund-comparison-panel, compare-fund-a/b, compare-stats-a/b, compare-overlap-table, compare-unique-a/b. The paper-trading order form has no testids; use role/button names ('Place MARKET BUY Order'). The heatmap 3D view is Plotly SVG, not a canvas.",
+  "rca of the issue": "13F weight bug: in hedge_funds_data.py, each original fund was padded to 50 holdings, and the final entry was given percent = 100 - sum(others) (and a value scaled to match). Because the original top holdings summed to only about 20-30%, that one filler row ends up at 70-80%. Repro: GET /api/sec/13f, then for renaissance look at MRK percent 78.7411. Fix: spread the remaining weight across all padded holdings (e.g. a decreasing geometric series) and sort descending."
+}

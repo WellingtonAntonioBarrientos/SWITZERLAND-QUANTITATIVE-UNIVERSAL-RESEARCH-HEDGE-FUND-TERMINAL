@@ -172,10 +172,10 @@ const QuantDashboard = ({ viewMode }) => {
           <div className="quant-card" data-testid="quick-stats">
             <div className="quant-card-header">Quick Stats</div>
             <div className="p-4 space-y-3">
-              <StatRow label="24h Volume" value="$1.2B" />
-              <StatRow label="Avg Volume" value="$890M" />
-              <StatRow label="52w High" value="$185.50" />
-              <StatRow label="52w Low" value="$120.30" />
+              <StatRow label="Range High" value={`$${Math.max(...chartData.map(d => d.high)).toFixed(2)}`} />
+              <StatRow label="Range Low" value={`$${Math.min(...chartData.map(d => d.low)).toFixed(2)}`} />
+              <StatRow label="Range Change" value={`${(((chartData[chartData.length - 1]?.close || 0) / (chartData[0]?.open || 1) - 1) * 100).toFixed(2)}%`} />
+              <StatRow label="Data Points" value={`${chartData.length}`} />
             </div>
           </div>
         </div>
