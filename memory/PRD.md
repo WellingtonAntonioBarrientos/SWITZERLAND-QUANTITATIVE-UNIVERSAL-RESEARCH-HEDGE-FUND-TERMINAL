@@ -20,7 +20,7 @@ Build a private quant financial application with quant dashboard, macro regime, 
 - AI: Claude via emergentintegrations (Emergent LLM key) — wellington_orchestrator.py routes standard/advanced modes with per-request model selection
 
 ## Implemented (chronological highlights)
-- Core 14-module dashboard, 13F filings, paper trading + funds paper trading (150 orders, 16 positions, ~$100.3M)
+- Core 14-module dashboard, 13F filings (15 funds since Nov 2026: 10 original + Jane Street, SIG, HRT, Optiver, Jump Trading; Millennium was already included), paper trading + funds paper trading (150 orders, 16 positions, ~$100.3M); watchlist = top 5 × 15 funds = 75 items
 - Wellington AI orchestrator (smart mode auto-detection: standard/code_gen/deep_analysis/research/strategy_builder/debate)
 - Dec 2025 fork:
   - Auth fully removed (open access)

@@ -1148,7 +1148,7 @@ Sector Focus: {', '.join([f"{k}: {v}%" for k, v in sorted(fund["sector_allocatio
         
         funds_summary = "\n".join(funds_overview)
         
-        prompt = f"""Analyze these Top 10 Hedge Funds' Q3 2025 13F SEC Filings:
+        prompt = f"""Analyze these Top 15 Hedge Funds' Q3 2025 13F SEC Filings:
 
 {funds_summary}
 
@@ -1214,7 +1214,7 @@ async def get_paper_account(user: dict = Depends(verify_token_dep)):
 
 @api_router.get("/paper-trading/watchlist")
 async def get_paper_watchlist():
-    """Get the 50-item watchlist: top 5 from each of 10 hedge funds"""
+    """Get the watchlist: top 5 from each hedge fund"""
     watchlist = []
     position = 1
     

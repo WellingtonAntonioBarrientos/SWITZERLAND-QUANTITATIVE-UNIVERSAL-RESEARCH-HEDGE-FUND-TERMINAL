@@ -1243,7 +1243,7 @@ const PaperTradingPage = ({ viewMode }) => {
         <div className="col-span-4">
           <div className={`quant-card ${isBloomberg ? 'bg-[#000] border-[#ff6600]/30' : ''}`}>
             <div className={`quant-card-header ${isBloomberg ? 'bg-[#ff6600] text-black' : ''}`}>
-              WATCHLIST (Top 5 from 10 Hedge Funds)
+              WATCHLIST (Top 5 from 15 Hedge Funds)
             </div>
             <div className="max-h-[700px] overflow-y-auto">
               {watchlist.map((item, idx) => (
@@ -1766,7 +1766,7 @@ const SECFilingsPage = ({ viewMode }) => {
       <div className="page-header">
         <div>
           <h1 className="page-title">13F SEC FILINGS</h1>
-          <p className="page-subtitle">Top 10 Hedge Fund Quarterly Holdings (Q3 2025)</p>
+          <p className="page-subtitle">Top 15 Hedge Fund Quarterly Holdings (Q3 2025)</p>
         </div>
         <div className="flex items-center gap-4">
           <div className="text-xs text-[#71717a]">
@@ -1781,7 +1781,7 @@ const SECFilingsPage = ({ viewMode }) => {
             {analyzingAll ? (
               <><RefreshCw size={16} className="animate-spin" /> Analyzing All Funds...</>
             ) : (
-              <><Brain size={16} /> Analyze All 10 Funds with AI</>
+              <><Brain size={16} /> Analyze All 15 Funds with AI</>
             )}
           </button>
         </div>
@@ -1791,7 +1791,7 @@ const SECFilingsPage = ({ viewMode }) => {
       {allFundsAnalysis && (
         <div className={`quant-card mb-4 ${isBloomberg ? 'bg-[#000] border-[#ff6600]/30' : ''}`}>
           <div className={`quant-card-header ${isBloomberg ? 'bg-[#ff6600] text-black' : ''}`}>
-            📊 Comparative Analysis: All 10 Hedge Funds
+            📊 Comparative Analysis: All 15 Hedge Funds
           </div>
           <div className="p-4">
             <div className={`text-sm whitespace-pre-wrap leading-relaxed ${isBloomberg ? 'text-[#00ff00]' : ''}`}>
@@ -2591,7 +2591,7 @@ const HedgeFundWatchlist = ({ viewMode }) => {
       <div className="page-header">
         <div>
           <h2 className="page-title text-2xl">Assets / Equities 2</h2>
-          <p className="page-subtitle">Top 5 Holdings from Top 10 Hedge Funds - Real-Time Tracking</p>
+          <p className="page-subtitle">Top 5 Holdings from Top 15 Hedge Funds - Real-Time Tracking</p>
         </div>
         <div className="text-xs text-[#71717a]">
           Tracking {Object.keys(watchlistData).length} unique assets | Auto-refresh: 60s
