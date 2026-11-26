@@ -1401,22 +1401,6 @@ async def chat_with_wellington(request: WellingtonChatRequest, http_request: Req
                     "symbols": ["SPY", "QQQ", "AAPL", "MSFT", "NVDA"]  # Available instruments
                 }
         
-        # Perplexity provider: live web research path (separate from Emergent key)
-        from wellington_orchestrator import resolve_model, resolve_provider
-        selected_model = resolve_model(request.model)
-        if resolve_provider(selected_model) == "perplexity":
-            import perplexity_service
-            if not perplexity_service.is_configured():
-                return {"error": "Perplexity API key not configured. Add your PERPLEXITY_API_KEY to enable live web research."}
-            result = await perplexity_service.ask_perplexity(request.message, context, model=selected_model)
-            return {
-                "response": result["response"],
-                "mode_used": "live_research",
-                "model_used": selected_model,
-                "citations": result["citations"],
-                "timestamp": datetime.now(timezone.utc).isoformat()
-            }
-        
         # Use orchestrator for smart routing
         result = await orchestrator.process_query(
             request.message, 
@@ -1474,20 +1458,6 @@ async def chat_with_wellington_stream(request: WellingtonChatRequest, http_reque
     
     async def event_generator():
         try:
-            if selected_provider == "perplexity":
-                import perplexity_service
-                if not perplexity_service.is_configured():
-                    yield sse({"type": "error", "message": "Perplexity API key not configured. Add your PERPLEXITY_API_KEY to enable live web research."})
-                    return
-                yield sse({"type": "start", "mode_used": "live_research", "model_used": selected_model})
-                citations = []
-                async for evt in perplexity_service.stream_perplexity(request.message, context, model=selected_model):
-                    if evt["type"] == "delta":
-                        yield sse({"type": "delta", "content": evt["content"]})
-                    elif evt["type"] == "citations":
-                        citations = evt["citations"]
-                yield sse({"type": "done", "mode_used": "live_research", "model_used": selected_model, "citations": citations})
-                return
             orchestrator.standard_ai.model = selected_model
             orchestrator.standard_ai.provider = selected_provider
             orchestrator.advanced_ai.model = selected_model

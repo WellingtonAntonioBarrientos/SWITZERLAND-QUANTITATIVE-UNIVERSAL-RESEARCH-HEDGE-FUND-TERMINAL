@@ -59,9 +59,4 @@ Build a private quant financial application with quant dashboard, macro regime, 
 - Verified: all 15 funds show real Q3 2026 filings (e.g. Citadel $899.6B AUM, filed 2026-11-16); idempotent rerun = 0 alerts; email sends 202; cron 401/200 auth; UI screenshot OK.
 - Known minor: ~5-10% of holdings keep name-slug symbols (e.g. SELECT-SECTO) where EDGAR issuer names cannot be confidently mapped to tickers.
 
-## 2026-06 (cont.): Perplexity Live Research in Wellington AI — CODE COMPLETE (awaiting user API key)
-- backend/perplexity_service.py: httpx adapter for Perplexity (sonar, sonar-pro, sonar-reasoning-pro), streaming SSE + citations extraction.
-- wellington_orchestrator.py: 3 Perplexity models added to AVAILABLE_MODELS (provider perplexity), total 11 models.
-- server.py: /wellington/chat and /chat/stream branch to Perplexity when selected; graceful error if PERPLEXITY_API_KEY missing.
-- Frontend (PaperTradingPage.jsx): citations/sources list rendered under Perplexity answers (data-testid wellington-msg-citations), live_research mode chip (cyan).
-- Verified: models endpoint lists 11; UI picker shows Perplexity; sending with sonar returns friendly missing-key error. LIVE ANSWERS UNTESTED — user skipped the PERPLEXITY_API_KEY secrets card. When key is added (test slot), feature activates with no code change; run one live smoke test then.
+## 2026-06 (cont.): Perplexity integration REMOVED at user request (service file, 3 sonar models, chat branches, citations UI). Wellington AI back to 8 models (Anthropic + OpenAI).

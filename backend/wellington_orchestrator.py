@@ -19,9 +19,6 @@ AVAILABLE_MODELS = [
     {"id": "gpt-6-sol", "label": "GPT-6 Sol", "tag": "ChatGPT · Deep Reasoning", "provider": "openai"},
     {"id": "gpt-5.6-terra", "label": "GPT-5.6 Terra", "tag": "ChatGPT · Everyday", "provider": "openai"},
     {"id": "gpt-6-luna", "label": "GPT-6 Luna", "tag": "ChatGPT · Fast", "provider": "openai"},
-    {"id": "sonar", "label": "Perplexity Sonar", "tag": "Perplexity · Live Web Search", "provider": "perplexity"},
-    {"id": "sonar-pro", "label": "Perplexity Sonar Pro", "tag": "Perplexity · Deep Live Research", "provider": "perplexity"},
-    {"id": "sonar-reasoning-pro", "label": "Perplexity Sonar Reasoning Pro", "tag": "Perplexity · Reasoned Research", "provider": "perplexity"},
 ]
 DEFAULT_MODEL = "claude-sonnet-4-6"
 

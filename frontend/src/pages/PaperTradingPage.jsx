@@ -225,8 +225,7 @@ const PaperTradingPage = ({ viewMode }) => {
                 model: evt.model_used || wellingtonModel,
                 ...(evt.response ? { content: evt.response } : {}),
                 thinking: evt.thinking || '',
-                code: evt.code || '',
-                citations: evt.citations || []
+                code: evt.code || ''
               });
               finished = true;
             } else if (evt.type === 'error') {
@@ -596,7 +595,6 @@ const PaperTradingPage = ({ viewMode }) => {
                             msg.mode === 'research' ? 'bg-[#10b981]/30 text-[#10b981]' :
                             msg.mode === 'strategy_builder' ? 'bg-[#f59e0b]/30 text-[#f59e0b]' :
                             msg.mode === 'multi_agent_debate' ? 'bg-[#ec4899]/30 text-[#ec4899]' :
-                            msg.mode === 'live_research' ? 'bg-[#06b6d4]/30 text-[#06b6d4]' :
                             'bg-[#71717a]/30 text-[#71717a]'
                           }`}>
                             {msg.mode.replace(/_/g, ' ').toUpperCase()}
@@ -620,22 +618,6 @@ const PaperTradingPage = ({ viewMode }) => {
                       
                       {/* Main Content */}
                       <div className="whitespace-pre-wrap">{msg.content}</div>
-                      
-                      {/* Live web sources (Perplexity) */}
-                      {msg.citations && msg.citations.length > 0 && (
-                        <div className="mt-2 pt-2 border-t border-[#27272a]/60" data-testid="wellington-msg-citations">
-                          <div className="text-[9px] uppercase text-[#71717a] mb-1">Sources</div>
-                          <div className="flex flex-col gap-0.5">
-                            {msg.citations.slice(0, 8).map((c, ci) => (
-                              <a key={`${c.url}-${ci}`} href={c.url} target="_blank" rel="noreferrer"
-                                 className="text-[10px] text-[#3b82f6] hover:underline truncate"
-                                 data-testid={`wellington-citation-${ci}`}>
-                                [{ci + 1}] {c.title || c.url}
-                              </a>
-                            ))}
-                          </div>
-                        </div>
-                      )}
                       
                       {/* Generated Code */}
                       {msg.code && (
