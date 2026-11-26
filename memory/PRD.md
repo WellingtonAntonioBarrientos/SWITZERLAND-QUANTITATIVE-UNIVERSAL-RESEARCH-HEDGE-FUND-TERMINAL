@@ -49,3 +49,12 @@ Build a private quant financial application with quant dashboard, macro regime, 
 ## Test Reports
 - /app/test_reports/iteration_4.json (regression suite, 94% backend)
 - /app/test_reports/iteration_5.json (branding + badge + watchlist key fix — all pass)
+
+## 2026-06 (cont.): Live SEC EDGAR 13F Feed + Email Alerts — COMPLETE
+- backend/edgar_service.py: fetches latest 13F-HR per fund from SEC EDGAR (data.sec.gov submissions API + infotable XML parsing), CUSIP-less ticker mapping via company_tickers.json with abbreviation expansion + ETF prefix map, symbol dedup. Fixed 5 wrong CIKs (millennium 1273087, elliott 1791786, hudsonriver 1475597, optiver 1859606, jumptrading 1831577).
+- Live filings stored in Mongo live_filings (accession-based idempotency); get_all_funds() merges live over static for /api/sec/13f and alert engine. Watchlist intentionally stays static.
+- First live ingest per fund = silent rebaseline (single NEW_FILING alert, no entry/exit flood). Future accession changes trigger ENTERED/EXITED diffs.
+- backend/email_service.py: Emergent Managed Email (Resend proxy, EMERGENT_EMAIL_KEY in backend/.env). Digest email (max 25 rows) sent to ALERT_EMAIL_TO=barrientoswellingtonantonio@gmail.com on new alerts.
+- Cron /api/cron/check-13f now runs full EDGAR refresh + diff in background; manual /api/alerts/run-check?refresh=true does the same synchronously.
+- Verified: all 15 funds show real Q3 2026 filings (e.g. Citadel $899.6B AUM, filed 2026-11-16); idempotent rerun = 0 alerts; email sends 202; cron 401/200 auth; UI screenshot OK.
+- Known minor: ~5-10% of holdings keep name-slug symbols (e.g. SELECT-SECTO) where EDGAR issuer names cannot be confidently mapped to tickers.

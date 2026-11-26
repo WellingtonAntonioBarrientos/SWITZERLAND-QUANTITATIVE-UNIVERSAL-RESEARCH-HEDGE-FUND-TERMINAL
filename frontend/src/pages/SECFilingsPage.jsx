@@ -70,7 +70,7 @@ const SECFilingsPage = ({ viewMode }) => {
       <div className="page-header">
         <div>
           <h1 className="page-title">13F SEC FILINGS</h1>
-          <p className="page-subtitle">Top 15 Hedge Fund Quarterly Holdings (Q3 2025)</p>
+          <p className="page-subtitle">Top 15 Hedge Funds — Latest Quarterly Holdings · Live SEC EDGAR Data</p>
         </div>
         <div className="flex items-center gap-4">
           <div className="text-xs text-[#71717a]">

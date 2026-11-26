@@ -1081,13 +1081,13 @@ async def optimize_composite_portfolio():
 # 13F SEC Filings Endpoints
 @api_router.get("/sec/13f")
 async def get_13f_filings():
-    """Get all 10 hedge fund 13F filings with 50 holdings each"""
-    return TOP_10_HEDGE_FUNDS
+    """Get all hedge fund 13F filings (live EDGAR data where ingested, else static)"""
+    return await get_all_funds()
 
 @api_router.get("/sec/13f/{fund_id}")
 async def get_13f_filing(fund_id: str):
     """Get detailed 13F filing for a specific hedge fund"""
-    for filing in TOP_10_HEDGE_FUNDS:
+    for filing in await get_all_funds():
         if filing["id"] == fund_id:
             return filing
     raise HTTPException(status_code=404, detail="Filing not found")
@@ -1499,22 +1499,91 @@ async def chat_with_wellington_stream(request: WellingtonChatRequest, http_reque
 
 # ============== FUND ALERTS (13F entry/exit detection) ==============
 import hmac
+from html import escape as html_escape
+from edgar_service import fetch_latest_13f
+from email_service import send_email
+
+ALERT_EMAIL_TO = os.environ.get("ALERT_EMAIL_TO")
+
+async def get_all_funds() -> list:
+    """Static fund data overlaid with live EDGAR filings where ingested"""
+    live = {d["fund_id"]: d async for d in db.live_filings.find({}, {"_id": 0})}
+    merged = []
+    for fund in TOP_10_HEDGE_FUNDS:
+        f = dict(fund)
+        lv = live.get(fund["id"])
+        if lv:
+            f.update({"aum": lv["aum"], "quarter": lv["quarter"], "filing_date": lv["filing_date"],
+                      "top_holdings": lv["top_holdings"], "live": True})
+        merged.append(f)
+    return merged
+
+async def refresh_edgar() -> dict:
+    """Pull latest 13F-HR per fund from SEC EDGAR; returns {fund_id: 'new'|'updated'|'unchanged'|'failed'}"""
+    results = {}
+    for fund in TOP_10_HEDGE_FUNDS:
+        try:
+            data = await fetch_latest_13f(fund["cik"], fund["fund_name"])
+            if not data:
+                results[fund["id"]] = "failed"
+                continue
+            prev = await db.live_filings.find_one({"fund_id": fund["id"]}, {"_id": 0, "accession": 1})
+            if prev and prev.get("accession") == data["accession"]:
+                results[fund["id"]] = "unchanged"
+                continue
+            await db.live_filings.update_one(
+                {"fund_id": fund["id"]},
+                {"$set": {"fund_id": fund["id"], "fund_name": fund["fund_name"], **data,
+                          "ingested_at": datetime.now(timezone.utc).isoformat()}},
+                upsert=True)
+            results[fund["id"]] = "updated" if prev else "new"
+        except Exception as e:
+            logging.warning(f"EDGAR fetch failed for {fund['id']}: {e}")
+            results[fund["id"]] = "failed"
+        await asyncio.sleep(0.15)
+    return results
+
+async def send_alert_digest(alerts: list):
+    """Email a digest of new entry/exit alerts to the owner"""
+    if not ALERT_EMAIL_TO or not alerts:
+        return
+    rows = "".join(
+        f'<tr><td style="padding:6px 10px;font-family:monospace;color:{"#0a7d33" if a["type"]=="ENTERED" else "#b42318" if a["type"]=="EXITED" else "#175cd3"}">{a["type"].replace("_"," ")}</td>'
+        f'<td style="padding:6px 10px;font-family:Arial,sans-serif;font-size:13px">{html_escape(a["message"])}</td></tr>'
+        for a in alerts[:25])
+    more = f'<p style="font-size:12px;color:#888">…and {len(alerts) - 25} more alerts in the terminal.</p>' if len(alerts) > 25 else ""
+    html = (f'<table role="presentation" width="100%"><tr><td style="padding:24px;font-family:Arial,sans-serif">'
+            f'<h2 style="margin:0 0 4px">13F Position Changes</h2>'
+            f'<p style="margin:0 0 16px;color:#555">{len(alerts)} new alert(s) from the latest filings scan.</p>'
+            f'<table role="presentation" style="border-collapse:collapse;background:#f7f7f8;border-radius:6px">{rows}</table>{more}'
+            f'<p style="font-size:12px;color:#888;margin-top:16px">Sent by SQUHF Terminal (Switzerland Quantitative Universal Hedge Fund Terminal). '
+            f'We never ask for your password or card details by email.</p></td></tr></table>')
+    try:
+        await send_email(to=ALERT_EMAIL_TO, subject=f"SQUHF Fund Alerts: {len(alerts)} position change(s)", html=html)
+    except Exception as e:
+        logging.warning(f"Alert digest email failed: {e}")
 
 async def run_13f_diff_check() -> int:
     """Compare current 13F holdings against stored snapshots; create alerts for entries/exits"""
-    new_alerts = 0
+    created = []
     now = datetime.now(timezone.utc).isoformat()
     baseline_mode = await db.fund_snapshots.count_documents({}) == 0
+    funds = await get_all_funds()
     
-    for fund in TOP_10_HEDGE_FUNDS:
+    for fund in funds:
         current = {h["symbol"]: {"name": h["name"], "percent": h["percent"]} for h in fund["top_holdings"]}
         prev = await db.fund_snapshots.find_one({"fund_id": fund["id"]}, {"_id": 0})
+        source = "live" if fund.get("live") else "static"
         
         alerts = []
         if prev is None:
             if not baseline_mode:
                 alerts.append({"type": "NEW_FILING", "symbol": None, "name": None, "percent": None,
                                "message": f"{fund['fund_name']} filed its first 13F ({fund['quarter']}) with {len(current)} holdings"})
+        elif source == "live" and prev.get("source") != "live":
+            # First real EDGAR ingest: silently rebaseline instead of flooding entry/exit alerts
+            alerts.append({"type": "NEW_FILING", "symbol": None, "name": None, "percent": None,
+                           "message": f"Live SEC EDGAR 13F ingested for {fund['fund_name']} ({fund['quarter']}, {len(current)} holdings) — future filings will trigger entry/exit alerts"})
         else:
             prev_symbols = set(prev.get("holdings", {}).keys())
             cur_symbols = set(current.keys())
@@ -1531,15 +1600,24 @@ async def run_13f_diff_check() -> int:
                 "alert_id": str(uuid4()), "fund_id": fund["id"], "fund_name": fund["fund_name"],
                 "quarter": fund["quarter"], "created_at": now, "read": False, **a
             })
-        new_alerts += len(alerts)
+        created.extend(alerts)
         
         await db.fund_snapshots.update_one(
             {"fund_id": fund["id"]},
             {"$set": {"fund_id": fund["id"], "fund_name": fund["fund_name"], "quarter": fund["quarter"],
-                      "holdings": current, "updated_at": now}},
+                      "holdings": current, "source": source, "updated_at": now}},
             upsert=True
         )
-    return new_alerts
+    
+    if created:
+        await send_alert_digest(created)
+    return len(created)
+
+async def full_filings_scan() -> dict:
+    """EDGAR refresh followed by diff/alerts"""
+    edgar = await refresh_edgar()
+    new_alerts = await run_13f_diff_check()
+    return {"edgar": edgar, "new_alerts": new_alerts}
 
 @api_router.post("/cron/check-13f")
 async def cron_check_13f(http_request: Request):
@@ -1548,13 +1626,16 @@ async def cron_check_13f(http_request: Request):
     auth = http_request.headers.get("authorization", "")
     if not secret or not auth.startswith("Bearer ") or not hmac.compare_digest(auth[7:], secret):
         raise HTTPException(status_code=401, detail="Unauthorized")
-    asyncio.create_task(run_13f_diff_check())
+    asyncio.create_task(full_filings_scan())
     return {"status": "accepted"}
 
 @api_router.post("/alerts/run-check")
-async def alerts_run_check(http_request: Request):
-    """Manual 'Check Now' from the UI"""
+async def alerts_run_check(http_request: Request, refresh: bool = True):
+    """Manual 'Check Now' from the UI: EDGAR refresh + diff"""
     rate_limit(http_request, "alerts-check", limit=6, window_seconds=60)
+    if refresh:
+        result = await full_filings_scan()
+        return {"status": "success", "new_alerts": result["new_alerts"], "edgar": result["edgar"]}
     count = await run_13f_diff_check()
     return {"status": "success", "new_alerts": count}
 

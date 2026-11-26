@@ -252,7 +252,7 @@ TOP_10_HEDGE_FUNDS = [
     {
         "id": "millennium",
         "fund_name": "Millennium Management",
-        "cik": "0001540158",
+        "cik": "0001273087",
         "aum": 65800000000,
         "quarter": "Q3 2025",
         "quarterly_change": 1.8,
@@ -500,7 +500,7 @@ TOP_10_HEDGE_FUNDS = [
     {
         "id": "elliott",
         "fund_name": "Elliott Investment Management",
-        "cik": "0001499598",
+        "cik": "0001791786",
         "aum": 38900000000,
         "quarter": "Q3 2025",
         "quarterly_change": 2.2,
@@ -748,7 +748,7 @@ TOP_10_HEDGE_FUNDS = [
     {
         "id": "hudsonriver",
         "fund_name": "Hudson River Trading (HRT)",
-        "cik": "0001475770",
+        "cik": "0001475597",
         "aum": 342600000000,
         "quarter": "Q3 2025",
         "quarterly_change": 9.1,
@@ -810,7 +810,7 @@ TOP_10_HEDGE_FUNDS = [
     {
         "id": "optiver",
         "fund_name": "Optiver Holding",
-        "cik": "0001888531",
+        "cik": "0001859606",
         "aum": 96400000000,
         "quarter": "Q3 2025",
         "quarterly_change": 5.2,
@@ -872,7 +872,7 @@ TOP_10_HEDGE_FUNDS = [
     {
         "id": "jumptrading",
         "fund_name": "Jump Trading",
-        "cik": "0001824710",
+        "cik": "0001831577",
         "aum": 28900000000,
         "quarter": "Q3 2025",
         "quarterly_change": 11.3,
