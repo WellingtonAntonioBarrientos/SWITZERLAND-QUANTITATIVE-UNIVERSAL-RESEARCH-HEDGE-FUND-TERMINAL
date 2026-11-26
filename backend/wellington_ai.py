@@ -25,6 +25,7 @@ class WellingtonAI:
     def __init__(self, api_key: str):
         self.api_key = api_key
         self.model = "claude-sonnet-4-6"
+        self.provider = "anthropic"
         self.trading_history = []
         self.learning_data = {
             "successful_trades": [],
@@ -58,7 +59,7 @@ Communication Style: Professional, data-driven, confident but cautious. Always e
             api_key=self.api_key,
             session_id=session_id,
             system_message=system_message
-        ).with_model("anthropic", self.model)
+        ).with_model(self.provider, self.model)
     
     async def analyze_watchlist(self, watchlist: List[Dict], account_data: Dict, roi_target: float = 50.0) -> Dict:
         """
@@ -469,7 +470,7 @@ Recent Insights:
             if start >= 0 and end > start:
                 json_str = response[start:end]
                 return json.loads(json_str)
-        except:
+        except Exception:
             pass
         
         # Fallback if JSON parsing fails

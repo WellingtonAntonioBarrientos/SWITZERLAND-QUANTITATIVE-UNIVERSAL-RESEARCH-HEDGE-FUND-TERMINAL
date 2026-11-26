@@ -9,12 +9,16 @@ import logging
 
 QueryType = Literal["standard", "deep_analysis", "code_generation", "research", "strategy_builder", "debate"]
 
-# Available Anthropic Claude models for the Wellington AI model picker
+# Available models for the Wellington AI model picker
 AVAILABLE_MODELS = [
-    {"id": "claude-sonnet-4-6", "label": "Claude Sonnet 4.6", "tag": "Latest · Recommended"},
-    {"id": "claude-opus-4-8", "label": "Claude Opus 4.8", "tag": "Most Powerful"},
-    {"id": "claude-haiku-4-5-20251001", "label": "Claude Haiku 4.5", "tag": "Fastest"},
-    {"id": "claude-sonnet-4-5-20250929", "label": "Claude Sonnet 4.5", "tag": "Stable"},
+    {"id": "claude-sonnet-4-6", "label": "Claude Sonnet 4.6", "tag": "Anthropic · Recommended", "provider": "anthropic"},
+    {"id": "claude-opus-4-8", "label": "Claude Opus 4.8", "tag": "Anthropic · Most Powerful", "provider": "anthropic"},
+    {"id": "claude-haiku-4-5-20251001", "label": "Claude Haiku 4.5", "tag": "Anthropic · Fastest", "provider": "anthropic"},
+    {"id": "claude-sonnet-4-5-20250929", "label": "Claude Sonnet 4.5", "tag": "Anthropic · Stable", "provider": "anthropic"},
+    {"id": "gpt-6-astra", "label": "GPT-6 Astra", "tag": "ChatGPT · Most Advanced", "provider": "openai"},
+    {"id": "gpt-6-sol", "label": "GPT-6 Sol", "tag": "ChatGPT · Deep Reasoning", "provider": "openai"},
+    {"id": "gpt-5.6-terra", "label": "GPT-5.6 Terra", "tag": "ChatGPT · Everyday", "provider": "openai"},
+    {"id": "gpt-6-luna", "label": "GPT-6 Luna", "tag": "ChatGPT · Fast", "provider": "openai"},
 ]
 DEFAULT_MODEL = "claude-sonnet-4-6"
 
@@ -22,6 +26,13 @@ def resolve_model(model: Optional[str]) -> str:
     """Validate a requested model id, falling back to the default"""
     valid_ids = {m["id"] for m in AVAILABLE_MODELS}
     return model if model in valid_ids else DEFAULT_MODEL
+
+def resolve_provider(model_id: str) -> str:
+    """Return the provider for a validated model id"""
+    for m in AVAILABLE_MODELS:
+        if m["id"] == model_id:
+            return m["provider"]
+    return "anthropic"
 
 class WellingtonOrchestrator:
     """
@@ -129,10 +140,13 @@ class WellingtonOrchestrator:
         }
         """
         try:
-            # Apply requested Claude model (validated, falls back to default)
+            # Apply requested model (validated, falls back to default)
             selected_model = resolve_model(model)
+            selected_provider = resolve_provider(selected_model)
             self.standard_ai.model = selected_model
+            self.standard_ai.provider = selected_provider
             self.advanced_ai.model = selected_model
+            self.advanced_ai.provider = selected_provider
             
             # Classify the query
             query_type = self.classify_query(user_message)

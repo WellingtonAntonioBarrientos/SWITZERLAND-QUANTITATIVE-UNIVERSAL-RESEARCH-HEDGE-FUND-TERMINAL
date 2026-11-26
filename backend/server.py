@@ -1189,7 +1189,7 @@ async def get_paper_account(user: dict = Depends(verify_token_dep)):
     
     if not account:
         account = create_default_account(user_id)
-        await db.paper_accounts.insert_one(account)
+        await db.paper_accounts.insert_one(dict(account))
     
     if account["positions"]:
         symbols = [p["symbol"] for p in account["positions"]]
@@ -1200,7 +1200,7 @@ async def get_paper_account(user: dict = Depends(verify_token_dep)):
                 hist = ticker.history(period="1d")
                 if not hist.empty:
                     price_data[symbol] = float(hist['Close'].iloc[-1])
-            except:
+            except Exception:
                 pass
         
         account["positions"] = update_positions_prices(account["positions"], price_data)
@@ -1239,7 +1239,7 @@ async def get_paper_watchlist():
             hist = ticker.history(period="1d")
             if not hist.empty:
                 item["current_price"] = float(hist['Close'].iloc[-1])
-        except:
+        except Exception:
             item["current_price"] = 0
     
     return watchlist
@@ -1261,7 +1261,7 @@ async def place_order(order_req: PlaceOrderRequest, user: dict = Depends(verify_
     account = await db.paper_accounts.find_one({"user_id": user_id}, {"_id": 0})
     if not account:
         account = create_default_account(user_id)
-        await db.paper_accounts.insert_one(account)
+        await db.paper_accounts.insert_one(dict(account))
     
     order = {
         "order_id": str(uuid4()),
@@ -1562,7 +1562,7 @@ async def wellington_auto_trade(http_request: Request, roi_target: float = 50.0,
         account = await db.paper_accounts.find_one({"user_id": user_id}, {"_id": 0})
         if not account:
             account = create_default_account(user_id)
-            await db.paper_accounts.insert_one(account)
+            await db.paper_accounts.insert_one(dict(account))
         
         # Get watchlist with prices
         watchlist = []

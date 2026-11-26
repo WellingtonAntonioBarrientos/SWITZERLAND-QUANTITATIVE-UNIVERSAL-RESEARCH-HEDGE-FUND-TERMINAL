@@ -24,7 +24,7 @@ Build a private quant financial application with quant dashboard, macro regime, 
 - Wellington AI orchestrator (smart mode auto-detection: standard/code_gen/deep_analysis/research/strategy_builder/debate)
 - Dec 2025 fork:
   - Auth fully removed (open access)
-  - Claude model picker in Wellington chat: Sonnet 4.6 (default), Opus 4.8, Haiku 4.5, Sonnet 4.5; GET /api/wellington/models; POST /api/wellington/chat accepts `model`, returns `model_used`
+  - Model picker in Wellington chat: Claude Sonnet 4.6 (default), Opus 4.8, Haiku 4.5, Sonnet 4.5 + ChatGPT GPT-6 Astra, GPT-6 Sol, GPT-5.6 Terra, GPT-6 Luna (Nov 2026); GET /api/wellington/models; POST /api/wellington/chat accepts `model`, returns `model_used`; per-model provider routing (anthropic/openai)
   - Fixed pre-existing crash: Wellington functions were trapped in resetAccount's unclosed catch block
   - Code review fixes: deleted dead auth files (hooks/useAuth.js, utils/api.js, components/auth/*), console.error → dev-gated logError, 17 list keys index→stable ids, orchestrator process_query split into _handle_* dispatch, eslint exhaustive-deps annotations
   - Fixed iteration-4 HIGH regression: watchlist key={item.position} (symbols repeat across funds)

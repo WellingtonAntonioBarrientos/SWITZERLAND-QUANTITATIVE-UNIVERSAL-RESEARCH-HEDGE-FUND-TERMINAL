@@ -23,6 +23,7 @@ class AdvancedWellingtonAI:
     def __init__(self, api_key: str):
         self.api_key = api_key
         self.model = "claude-sonnet-4-6"
+        self.provider = "anthropic"
         self.conversation_history = []
         
     def create_advanced_chat(self, session_id: str, mode: AnalysisMode = "standard"):
@@ -109,7 +110,7 @@ Challenge assumptions when appropriate."""
             api_key=self.api_key,
             session_id=session_id,
             system_message=system_messages.get(mode, system_messages["standard"])
-        ).with_model("anthropic", self.model)
+        ).with_model(self.provider, self.model)
     
     async def deep_analysis(self, query: str, context: Dict) -> Dict:
         """
