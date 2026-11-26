@@ -268,6 +268,23 @@ Analyze this content and provide financial insights."""
             logging.error(f"Wellington chat error: {e}")
             return f"Wellington AI Error: {str(e)}"
     
+    async def stream_chat(self, user_message: str, context: Dict):
+        """Streaming variant of chat_with_wellington: yields text deltas"""
+        from emergentintegrations.llm.chat import TextDelta, StreamDone
+        chat = self.create_chat_session(f"chat-{datetime.now().timestamp()}")
+        context_str = self._build_context_string(context)
+        full_prompt = f"""Context:
+{context_str}
+
+User: {user_message}
+
+Respond as Wellington AI with actionable insights."""
+        async for event in chat.stream_message(UserMessage(text=full_prompt)):
+            if isinstance(event, TextDelta):
+                yield event.content
+            elif isinstance(event, StreamDone):
+                break
+    
     async def analyze_image(self, image_data: str, prompt: str = None) -> str:
         """
         Analyze financial charts, screenshots, or documents

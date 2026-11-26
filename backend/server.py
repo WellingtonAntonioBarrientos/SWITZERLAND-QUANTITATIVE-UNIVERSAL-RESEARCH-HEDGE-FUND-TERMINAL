@@ -1,8 +1,11 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, File, Form, Query
+from fastapi.responses import StreamingResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
+import json
+import asyncio
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
@@ -1408,6 +1411,77 @@ async def chat_with_wellington(request: WellingtonChatRequest, http_request: Req
     except Exception as e:
         logging.error(f"Wellington chat error: {e}")
         return {"error": "Wellington AI request failed"}
+
+@api_router.post("/wellington/chat/stream")
+async def chat_with_wellington_stream(request: WellingtonChatRequest, http_request: Request, user: dict = Depends(verify_token_dep)):
+    """Streaming chat (SSE): standard queries stream token-by-token; advanced modes send keepalives then the full result"""
+    rate_limit(http_request, "llm", limit=20, window_seconds=60)
+    if len(request.message or "") > 8000:
+        raise HTTPException(status_code=413, detail="Message too long (max 8000 characters)")
+    api_key = os.environ.get('EMERGENT_LLM_KEY')
+    if not api_key:
+        raise HTTPException(status_code=503, detail="AI key not configured")
+    
+    from wellington_orchestrator import resolve_model, resolve_provider
+    orchestrator = get_wellington_orchestrator(api_key)
+    selected_model = resolve_model(request.model)
+    selected_provider = resolve_provider(selected_model)
+    
+    context = {}
+    if request.include_context:
+        account = await db.paper_accounts.find_one({"user_id": user["email"]}, {"_id": 0})
+        if account:
+            context = {
+                "account_value": account.get("total_value", 0),
+                "positions_count": len(account.get("positions", [])),
+                "success_rate": 0,
+                "recent_insights": [],
+                "symbols": ["SPY", "QQQ", "AAPL", "MSFT", "NVDA"]
+            }
+    
+    def sse(payload: dict) -> str:
+        return f"data: {json.dumps(payload)}\n\n"
+    
+    async def event_generator():
+        try:
+            orchestrator.standard_ai.model = selected_model
+            orchestrator.standard_ai.provider = selected_provider
+            orchestrator.advanced_ai.model = selected_model
+            orchestrator.advanced_ai.provider = selected_provider
+            query_type = orchestrator.classify_query(request.message)
+            yield sse({"type": "start", "mode_used": query_type, "model_used": selected_model})
+            
+            if query_type == "standard":
+                async for delta in orchestrator.standard_ai.stream_chat(request.message, context):
+                    yield sse({"type": "delta", "content": delta})
+                yield sse({"type": "done", "mode_used": "standard", "model_used": selected_model})
+            else:
+                task = asyncio.create_task(orchestrator.process_query(
+                    request.message, context,
+                    image_data=request.image_data,
+                    file_content=request.file_content,
+                    url_content=request.url_content,
+                    model=request.model
+                ))
+                while not task.done():
+                    await asyncio.sleep(5)
+                    if not task.done():
+                        yield sse({"type": "status", "message": "processing"})
+                result = task.result()
+                yield sse({
+                    "type": "done",
+                    "response": result.get("response", ""),
+                    "mode_used": result.get("mode_used", query_type),
+                    "model_used": selected_model,
+                    "thinking": result.get("thinking", ""),
+                    "code": result.get("code", "")
+                })
+        except Exception as e:
+            logging.error(f"Wellington stream error: {e}")
+            yield sse({"type": "error", "message": "Wellington AI request failed"})
+    
+    return StreamingResponse(event_generator(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 @api_router.post("/wellington/upload-image")
 async def wellington_upload_image(request: Request, file: bytes = File(...), prompt: str = Form(None)):
