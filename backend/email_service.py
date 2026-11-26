@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 # Emergent managed email proxy. Constant by design — never read from os.environ.
 EMAIL_BASE_URL = "https://integrations.emergentagent.com"
 EMAIL_KEY = os.environ.get("EMERGENT_EMAIL_KEY")
-EMAIL_FROM_NAME = os.environ.get("EMAIL_FROM_NAME", "SQUHF Terminal")
+EMAIL_FROM_NAME = os.environ.get("EMAIL_FROM_NAME", "SQURHFT Terminal")
 
 _SHORTENERS = ("bit.ly", "tinyurl.com", "t.co", "is.gd", "cutt.ly", "goo.gl", "rebrand.ly")
 _CRED_ASK = ("reply with your password", "reply with the code", "send your password", "cvv",

@@ -1,6 +1,6 @@
 """
 Iteration 5 tests:
-- BRANDING: Verify GET /api/ returns rebranded SQUHF message
+- BRANDING: Verify GET /api/ returns rebranded SQURHFT message
 - REGRESSION: Verify paper trading watchlist API still functions (position uniqueness)
 - SMOKE: Verify core endpoints still return 200 (health, market, macro, intel, paper-trading)
 """
@@ -24,7 +24,7 @@ class TestBranding:
         r = client.get(f"{BASE_URL}/api/", timeout=30)
         assert r.status_code == 200, f"Expected 200, got {r.status_code}: {r.text}"
         data = r.json()
-        assert data.get("message") == "Switzerland Quantitative Universal Hedge Fund Terminal API", (
+        assert data.get("message") == "Switzerland Quantitative Universal Research Hedge Terminal API", (
             f"Unexpected root message: {data}"
         )
         assert "version" in data
@@ -36,7 +36,7 @@ class TestBranding:
             if r.status_code == 200 and r.headers.get("content-type", "").startswith("application/json"):
                 info = r.json().get("info", {})
                 title = info.get("title", "")
-                assert "Switzerland Quantitative" in title or "SQUHF" in title, f"Unexpected FastAPI title: {title}"
+                assert "Switzerland Quantitative" in title or "SQURHFT" in title, f"Unexpected FastAPI title: {title}"
                 return
         pytest.skip("openapi.json not publicly exposed as JSON")
 

@@ -46,7 +46,7 @@ if not EMERGENT_LLM_KEY:
 openclaw_analyzer = OpenclawTradingAnalyzer(api_key=EMERGENT_LLM_KEY)
 
 # Create the main app
-app = FastAPI(title="Switzerland Quantitative Universal Hedge Fund Terminal API")
+app = FastAPI(title="Switzerland Quantitative Universal Research Hedge Terminal API")
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
@@ -726,7 +726,7 @@ def generate_mock_system_health():
 
 @api_router.get("/")
 async def root():
-    return {"message": "Switzerland Quantitative Universal Hedge Fund Terminal API", "version": "1.0.0"}
+    return {"message": "Switzerland Quantitative Universal Research Hedge Terminal API", "version": "1.0.0"}
 
 # Market Data Endpoints
 @api_router.get("/market/data", response_model=List[MarketData])
@@ -1556,10 +1556,10 @@ async def send_alert_digest(alerts: list):
             f'<h2 style="margin:0 0 4px">13F Position Changes</h2>'
             f'<p style="margin:0 0 16px;color:#555">{len(alerts)} new alert(s) from the latest filings scan.</p>'
             f'<table role="presentation" style="border-collapse:collapse;background:#f7f7f8;border-radius:6px">{rows}</table>{more}'
-            f'<p style="font-size:12px;color:#888;margin-top:16px">Sent by SQUHF Terminal (Switzerland Quantitative Universal Hedge Fund Terminal). '
+            f'<p style="font-size:12px;color:#888;margin-top:16px">Sent by SQURHFT Terminal (Switzerland Quantitative Universal Research Hedge Terminal). '
             f'We never ask for your password or card details by email.</p></td></tr></table>')
     try:
-        await send_email(to=ALERT_EMAIL_TO, subject=f"SQUHF Fund Alerts: {len(alerts)} position change(s)", html=html)
+        await send_email(to=ALERT_EMAIL_TO, subject=f"SQURHFT Fund Alerts: {len(alerts)} position change(s)", html=html)
     except Exception as e:
         logging.warning(f"Alert digest email failed: {e}")
 

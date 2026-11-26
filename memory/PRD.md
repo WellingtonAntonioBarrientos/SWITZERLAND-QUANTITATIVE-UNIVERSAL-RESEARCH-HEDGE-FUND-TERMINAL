@@ -1,8 +1,8 @@
-# Switzerland Quantitative Universal Hedge Fund Terminal (SQUHF) — PRD
+# Switzerland Quantitative Universal Research Hedge Terminal (SQURHFT) — PRD
 
 ## Project Overview
 A **private, open-access** hedge fund quantitative trading platform with 14+ modules for market analysis, strategy management, SEC filings analysis, paper trading, and AI-powered analysis.
-Branding: **Switzerland Quantitative Universal Hedge Fund Terminal by Wellington Antonio Barrientos** (logo "SQ", short name "SQUHF"). "Made with Emergent" badge removed (Jul 2026).
+Branding: **Switzerland Quantitative Universal Research Hedge Terminal by Wellington Antonio Barrientos** (logo "SQ", short name "SQURHFT"). "Made with Emergent" badge removed (Jul 2026).
 
 ## Owner
 - Wellington Antonio Barrientos
@@ -29,7 +29,7 @@ Build a private quant financial application with quant dashboard, macro regime, 
   - Code review fixes: deleted dead auth files (hooks/useAuth.js, utils/api.js, components/auth/*), console.error → dev-gated logError, 17 list keys index→stable ids, orchestrator process_query split into _handle_* dispatch, eslint exhaustive-deps annotations
   - Fixed iteration-4 HIGH regression: watchlist key={item.position} (symbols repeat across funds)
 - Nov 2026: Fund Alerts — daily 13F diff engine (.emergent/crons.yml cron 13:00 UTC + manual Check Now) creating ENTERED/EXITED/NEW_FILING alerts, alerts panel with unread badge on /sec-filings
-- Jul 2026: Rebranded to SQUHF Terminal (index.html title/meta, sidebar, profile, terminal boot, API title); removed Emergent badge script
+- Jul 2026: Rebranded to SQURHFT Terminal (index.html title/meta, sidebar, profile, terminal boot, API title); removed Emergent badge script
 
 ## Security (audit remediated Jul 2026)
 - Open access is an accepted design decision (no auth). Audit-fixed beyond that: SSRF guard on analyze-url, removed hardcoded LLM key (fail-closed), 10MB upload caps + 8000-char chat cap, in-memory per-IP rate limiting on LLM/analyze-url/upload, reset requires confirm=='RESET-ACCOUNT', generic error messages, CORS credentials off under wildcard.

@@ -24,7 +24,7 @@ const ProfilePage = () => {
               </div>
               <div className="flex-1">
                 <div className="text-sm text-[#71717a] uppercase tracking-wider mb-1">Fund</div>
-                <div className="font-mono text-[#ededed] text-lg">Switzerland Quantitative Universal Hedge Fund Terminal</div>
+                <div className="font-mono text-[#ededed] text-lg">Switzerland Quantitative Universal Research Hedge Terminal</div>
                 <div className="text-xs text-[#71717a] mt-2">by Wellington Antonio Barrientos · Account Owner</div>
               </div>
             </div>

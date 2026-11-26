@@ -36,8 +36,8 @@ export const Sidebar = ({ collapsed, setCollapsed, viewMode, setViewMode }) => {
         <div className="sidebar-logo" data-testid="brand-logo">SQ</div>
         {!collapsed && (
           <div className="min-w-0">
-            <span className="sidebar-title block" data-testid="brand-title">SQUHF</span>
-            <span className="block text-[8px] leading-tight text-[#71717a] uppercase tracking-wider" data-testid="brand-fullname">Switzerland Quantitative Universal Hedge Fund Terminal</span>
+            <span className="sidebar-title block" data-testid="brand-title">SQURHFT</span>
+            <span className="block text-[8px] leading-tight text-[#71717a] uppercase tracking-wider" data-testid="brand-fullname">Switzerland Quantitative Universal Research Hedge Terminal</span>
           </div>
         )}
       </div>

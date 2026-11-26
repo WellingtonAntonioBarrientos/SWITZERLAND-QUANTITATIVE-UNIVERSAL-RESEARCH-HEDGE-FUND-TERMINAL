@@ -4,7 +4,7 @@ import { API } from '../lib/config';
 
 const Terminal = () => {
   const [history, setHistory] = useState([
-    { type: 'system', content: 'SQUHF Terminal v1.0.0 — Switzerland Quantitative Universal Hedge Fund Terminal' },
+    { type: 'system', content: 'SQURHFT Terminal v1.0.0 — Switzerland Quantitative Universal Research Hedge Terminal' },
     { type: 'system', content: 'Type "help" for available commands.' },
   ]);
   const [input, setInput] = useState('');

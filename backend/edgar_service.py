@@ -5,7 +5,7 @@ import httpx
 import xml.etree.ElementTree as ET
 
 logger = logging.getLogger(__name__)
-HEADERS = {"User-Agent": "SQUHF Terminal research barrientoswellingtonantonio@gmail.com"}
+HEADERS = {"User-Agent": "SQURHFT Terminal research barrientoswellingtonantonio@gmail.com"}
 
 _ticker_map = None
 
